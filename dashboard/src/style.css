@@ -22,21 +22,23 @@
   --text: #E4E8EC;
   --text-dim: #959DA6;
   --text-label: #8A929B;
-  --accent: #6FA8D6;
+  --accent: #E8A33A;
   --agent: var(--state-uncertain);
   --human: #4E86B8;
   --hatch: #000000;
   --backdrop: var(--hatch);
   --mono: 'IBM Plex Mono', monospace;
-  --sans: 'IBM Plex Sans', sans-serif;
+  --sans: 'EB Garamond', 'Times New Roman', Times, serif;
+  --display: 'Cormorant Garamond', 'EB Garamond', 'Times New Roman', serif;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--ground); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.55; }
+body { margin: 0; background: var(--ground); color: var(--text); font-family: var(--sans); font-size: 16px; line-height: 1.55; }
 h1, h2, h3, p { margin: 0; }
-h1 { font-size: 24px; line-height: 1.35; font-weight: 600; letter-spacing: -.015em; }
-h2 { font-size: 18px; line-height: 1.4; font-weight: 600; }
-h3 { font-size: 16px; font-weight: 600; }
+h1, h2, h3 { font-family: var(--display); }
+h1 { font-size: 34px; line-height: 1.2; font-weight: 500; letter-spacing: -.005em; }
+h2 { font-size: 22px; line-height: 1.4; font-weight: 600; }
+h3 { font-size: 19px; font-weight: 600; }
 p { margin-top: 10px; }
 a { color: var(--accent); text-decoration: none; }
 button, select, summary, .button-link { font: 12px var(--mono); }
@@ -58,7 +60,7 @@ button:disabled { opacity: .55; cursor: default; }
 .state-unavailable { --fill: var(--state-unavailable); --on: var(--on-unavailable); }
 .untested { background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, color-mix(in srgb, var(--hatch) 8%, transparent) 4px, color-mix(in srgb, var(--hatch) 8%, transparent) 5px); }
 .app-header { min-height: 64px; display: flex; align-items: center; gap: 28px; padding: 6px 24px; border-bottom: 1px solid var(--border); }
-.brand { display: flex; align-items: center; gap: 9px; font: 600 15px var(--mono); color: var(--text); min-height: 44px; }
+.brand { display: flex; align-items: center; gap: 9px; font: 600 24px var(--display); letter-spacing: .02em; color: var(--text); min-height: 44px; }
 .brand-mark { width: 14px; height: 14px; border: 2px solid var(--accent); border-radius: 50%; }
 nav { display: flex; gap: 4px; }
 nav a { display: flex; align-items: center; min-height: 44px; padding: 8px 13px; font: 12px var(--mono); border: 1px solid transparent; border-radius: 3px; color: var(--text-dim); }
@@ -89,14 +91,14 @@ nav a { display: flex; align-items: center; min-height: 44px; padding: 8px 13px;
 .file-name > span { color: var(--text-dim); font-size: 11px; overflow-wrap: anywhere; }
 .state-chip { display: inline-block; background-color: var(--fill); color: var(--on); font: 11px var(--mono); padding: 4px 8px; border-radius: 2px; white-space: nowrap; }
 .attention-text { color: var(--state-uncertain); }
-.footnote { font-family: var(--sans); color: var(--text-dim); font-size: 12px; max-width: 900px; padding-top: 10px; }
+.footnote { font-family: var(--sans); color: var(--text-dim); font-size: 14px; max-width: 900px; padding-top: 10px; }
 .notice { border-left: 2px solid var(--accent); padding: 12px 24px; margin: 16px 24px; background: var(--panel); }
 .map-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: calc(100vh - 100px); }
 .map-sidebar { background: var(--panel); border-right: 1px solid var(--border); }
 .rollup { padding: 24px 20px; border-bottom: 1px solid var(--border); }
 .rollup p { color: var(--text-dim); font-size: 12px; }
-.headline { font: 400 46px/1.25 var(--mono); letter-spacing: -.04em; overflow-wrap: anywhere; }
-.headline-words { font-size: 30px; }
+.headline { font-variant-numeric: lining-nums; font: 400 58px/1.2 var(--display); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.headline-words { font-size: 36px; }
 .directory-row { display: grid; grid-template-columns: 1fr auto; gap: 4px; width: 100%; background: transparent; border: none; padding: 9px 0; text-align: left; }
 .directory-row small { grid-column: 1 / -1; color: var(--text-label); font: 10px var(--mono); }
 progress { appearance: none; height: 4px; width: 100%; border: none; background: var(--hairline); border-radius: 0; accent-color: var(--accent); }

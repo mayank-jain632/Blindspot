@@ -70,7 +70,7 @@ export function Lanes({ files, events, ticks, onSelect, axis }) {
 }
 
 export async function drawShare(canvas, data) {
-  await Promise.all([document.fonts.load('400 108px "IBM Plex Mono"'), document.fonts.load('400 26px "IBM Plex Sans"')]);
+  await Promise.all([document.fonts.load('400 108px "IBM Plex Mono"'), document.fonts.load('400 26px "EB Garamond"'), document.fonts.load('400 66px "Cormorant Garamond"')]);
   await document.fonts.ready;
   const css = getComputedStyle(document.documentElement);
   const color = token => css.getPropertyValue(`--${token}`).trim();
@@ -79,11 +79,11 @@ export async function drawShare(canvas, data) {
   const text = (value, x, y, size, family = 'IBM Plex Mono', token = 'text') => {
     ctx.font = `${size}px "${family}"`; ctx.fillStyle = color(token); ctx.fillText(value, x, y);
   };
-  text('blindspot', 40, 48, 19); text(data.workspace.split('/').at(-1), 760, 48, 14, 'IBM Plex Mono', 'text-dim');
+  text('blindspot', 40, 48, 28, 'Cormorant Garamond'); text(data.workspace.split('/').at(-1), 760, 48, 14, 'IBM Plex Mono', 'text-dim');
   ctx.strokeStyle = color('border'); ctx.beginPath(); ctx.moveTo(40, 75); ctx.lineTo(1160, 75); ctx.stroke();
   const gap = gapSummary(data);
-  text('Seen', 40, 155, 26, 'IBM Plex Sans');
-  text(gap.headline, 36, 275, gap.known && gap.gap ? 66 : 34);
+  text('Seen', 40, 155, 26, 'EB Garamond');
+  text(gap.headline, 36, 275, gap.known && gap.gap ? 84 : 44, 'Cormorant Garamond');
   text(gap.detail, 40, 337, 17, 'IBM Plex Mono', 'text-dim');
   if (gap.context) text(gap.context, 40, 385, 13);
   if (gap.percentage) text(gap.percentage, 40, 416, 14, 'IBM Plex Mono', 'text-dim');

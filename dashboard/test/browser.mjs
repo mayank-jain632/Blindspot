@@ -65,7 +65,7 @@ try {
   await expect(page.locator('.map-cell.untested')).toHaveCount(1);
   await expect(page.locator('.headline')).toHaveText('30 lines');
   await expect(page.getByText('never on screen, across 2 files')).toBeVisible();
-  expect(await page.locator('.headline').evaluate(el => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono');
+  expect(await page.locator('.headline').evaluate(el => getComputedStyle(el).fontFamily)).toContain('Cormorant Garamond');
   await screenshot('map');
   await page.getByRole('link', { name: 'Timeline', exact: true }).click();
   await expect(page.locator('.weekly-chart')).toBeVisible();
@@ -82,7 +82,7 @@ try {
   await page.getByRole('button', { name: 'Download PNG' }).click();
   await (await download).saveAs(resolve(project, 'reports/local/dashboard-checks/share.png'));
   expect(await page.locator('canvas').evaluate(c => [c.width, c.height])).toEqual([1200, 630]);
-  expect(await page.evaluate(() => window.canvasText.find(t => t.text === '30 lines')?.font)).toContain('IBM Plex Mono');
+  expect(await page.evaluate(() => window.canvasText.find(t => t.text === '30 lines')?.font)).toContain('Cormorant Garamond');
   expect(await page.evaluate(() => window.canvasText.some(t => /reading|understanding|eligible|current source/i.test(t.text)))).toBe(false);
   await page.goto(config.empty_url);
   await expect(page.getByText('No recording yet.', { exact: true })).toBeVisible();
