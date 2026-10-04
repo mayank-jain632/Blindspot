@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "configurations": [{
+    "name": "Blindspot: Observer pilot",
+    "type": "extensionHost",
+    "request": "launch",
+    "runtimeExecutable": "${execPath}",
+    "args": ["--extensionDevelopmentPath=${workspaceFolder}/extension", "${workspaceFolder}/sandbox/observer-pilot"],
+    "env": {"BLINDSPOT_CONNECTION_FILE": "${workspaceFolder}/reports/local/observer-state/connection.json"}
+  }]
+}

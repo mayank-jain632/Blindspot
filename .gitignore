@@ -1,0 +1,13 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+.coverage
+node_modules/
+blindspot/observer/dashboard_dist/
+reports/local/
+sandbox/phase1-pilot/
+sandbox/observer-pilot/
