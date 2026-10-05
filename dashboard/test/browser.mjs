@@ -82,7 +82,7 @@ try {
   await page.getByRole('button', { name: 'Download PNG' }).click();
   await (await download).saveAs(resolve(project, 'reports/local/dashboard-checks/share.png'));
   expect(await page.locator('canvas').evaluate(c => [c.width, c.height])).toEqual([1200, 630]);
-  expect(await page.evaluate(() => window.canvasText.find(t => t.text === '30 lines')?.font)).toContain('Cormorant Garamond');
+  expect(await page.evaluate(() => window.canvasText.find(t => t.text === '30 lines')?.font)).toContain('EB Garamond');
   expect(await page.evaluate(() => window.canvasText.some(t => /reading|understanding|eligible|current source/i.test(t.text)))).toBe(false);
   await page.goto(config.empty_url);
   await expect(page.getByText('No recording yet.', { exact: true })).toBeVisible();

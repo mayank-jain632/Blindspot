@@ -40,7 +40,7 @@ function Risk({ data, inspect }) {
     {files.length > 0 && <div className="table-scroll"><table className="risk-table mono"><thead><tr><th aria-label="Rank">#</th><th>File</th><th>Seen</th>{showMissing && <th title="Lines never on screen">Missing lines</th>}{showCommits && <th title="Commits touching this file in the last 90 days">Commits</th>}<th>Quiz sample</th><th aria-label="Action"></th></tr></thead>
       <tbody>{files.map(f => <tr key={f.path} className={f === files[0] ? 'first-row' : ''}>
         <td className="dim" title="Unseen lines and recent commits set the rank; passing a quiz lowers it.">{f.rank}</td><td><button className="file-link" onClick={() => inspect(f)}><FileName path={f.path} /></button></td>
-        <td><Chip state={f.state} tested={f.review.tested} /></td>{showMissing && <td className="numeric missing-lines">{missingLines(f) === null ? 'Unknown' : number(missingLines(f))}</td>}
+        <td><Chip state={f.state} tested={f.review.tested} /></td>{showMissing && <td className="numeric missing-lines">{missingLines(f) === null ? 'Unknown' : <>{number(missingLines(f))}<i className="gap-bar" style={{ '--w': `${Math.min(100, 100 * missingLines(f) / (f.line_count || 1))}%` }} /></>}</td>}
         {showCommits && <td className="numeric">{Number.isFinite(f.commits_90d) ? number(f.commits_90d) : 'Unknown'}</td>}
         <td>{f.review.confidently_wrong ? <span className="attention-text">Confidently wrong</span> : f.review.passing_samples ? <Chip state="sample_passed" /> : <span className="dim">{f.review.tested ? 'Tested' : f.review.stale_results ? 'Changed since quiz' : 'Never tested'}</span>}</td>
         <td><ReviewAction file={f} inspect={inspect} /></td>
