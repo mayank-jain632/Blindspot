@@ -337,7 +337,7 @@ def build(text, path, reported_ranges, history=None, now=None):
             "name": item["name"], "kind": item["kind"], "signature": item["signature"], "doc": item.get("doc", ""),
             "start": item["start"], "end": item["end"], "lines": lines_total, "unseen": unseen,
             "state": "seen" if unseen == 0 else "unseen" if unseen == lines_total else "partial",
-            "unseen_ranges": unseen_ranges[:8], "decorators": item.get("decorators", []),
+            "unseen_ranges": unseen_ranges[:8], "ranges": own, "decorators": item.get("decorators", []),
             "calls": item.get("calls", []), "raises": item.get("raises", []), "branches": item.get("branches"),
             "changes": recent, "recently_changed": any((c["date"] and c["date"] >= cutoff) or c["commit"] is None for c in recent),
         })

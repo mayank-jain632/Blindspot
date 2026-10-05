@@ -69,6 +69,15 @@ first; **Whole file** lists everything in order. Open it from the **Guide** butt
 "Open full guide" in file detail, for a full page with an outline, expandable code, Markdown copy and print. No model is used and the code never
 leaves the machine. It describes display evidence, not understanding.
 
+**Optional local explanations.** If [Ollama](https://ollama.com) is running, the full guide page
+gets an **Explain** button on each code unit and **Summarize this file**. Install a model once
+(for example `ollama pull qwen2.5-coder:7b`; any chat model works) and pick it in the sidebar.
+Only the selected unit's code, its unseen line ranges and its last commit message are sent, to
+a loopback endpoint only (`--ollama-url` rejects anything off this machine). Answers are cached
+in the observer state folder, labelled as generated and unverified, and the guide works
+the same without them. To go back to the version before this feature, check out the commit
+`f21ab92` (tagged `pre-ollama` where the tag could be pushed).
+
 The [data contract and design adaptations](reports/dashboard-contract.md) explain
 what is measured, inferred, and unavailable. Check the implementation with:
 

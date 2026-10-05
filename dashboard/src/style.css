@@ -355,3 +355,14 @@ h3.guide-name { margin: 0; font: 600 14px var(--mono); }
   .guide-sidebar .headline { -webkit-text-fill-color: black; filter: none; }
   * { color: black !important; box-shadow: none !important; }
 }
+
+/* Local-model explanations */
+.local-model .select-label { padding-left: 0; display: grid; gap: 6px; }
+.local-model select { width: 100%; }
+.local-model p { font-size: 13px; margin-top: 10px; }
+.guide-explain-button { margin-top: 12px; margin-right: 8px; min-height: 36px; background: transparent; border-color: var(--state-brief); color: var(--corona); }
+.guide-explain { margin-top: 12px; padding: 14px 16px; background: var(--panel); border-left: 2px solid var(--accent); }
+.guide-explain .eyebrow { text-transform: none; letter-spacing: .02em; font-size: 10px; color: var(--text-label); }
+.guide-explain-text { white-space: pre-wrap; font-size: 16px; color: var(--text); margin: 0 0 12px; overflow-wrap: anywhere; }
+.guide-explain button { min-height: 32px; background: transparent; }
+@media print { .guide-explain-button, .local-model { display: none; } }

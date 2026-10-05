@@ -51,7 +51,8 @@ most of the infrastructure needed for a demo; further infrastructure is not the
 next milestone. Existing source, observations and quiz records remain intact.
 
 A per-file study guide (code units, unseen lines, last-changing commits) is part of file
-detail. It is deterministic and local; an optional local-model summary may come later.
+detail and a full page. It is deterministic and local. An optional Ollama button adds
+clearly labelled plain-English explanations from a model on the same machine.
 
 ## The next step
 

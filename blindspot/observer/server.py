@@ -21,11 +21,12 @@ DASHBOARD_ASSETS = Path(__file__).parent / "dashboard_dist"
 MAX_BODY = 2 * 1024 * 1024
 
 
-def make_server(journal: Journal, token: str, port: int = 7777, *, review_directory: Path | None = None) -> ThreadingHTTPServer:
+def make_server(journal: Journal, token: str, port: int = 7777, *, review_directory: Path | None = None, ollama=None) -> ThreadingHTTPServer:
     from .dashboard import Dashboard
     from ..review import ReviewError
+    from .explain import LLMError
     from ..scan.repo import RepoError
-    dashboard = Dashboard(journal, review_directory) if isinstance(journal, SQLiteStore) else None
+    dashboard = Dashboard(journal, review_directory, ollama) if isinstance(journal, SQLiteStore) else None
     receiver_id = str(uuid.uuid4())
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -80,6 +81,7 @@ def make_server(journal: Journal, token: str, port: int = 7777, *, review_direct
                     if parsed.path == "/api/dashboard": return self.reply(200, dashboard.overview())
                     if parsed.path == "/api/dashboard/source":
                         return self.reply(200, dashboard.source(query.get("path", [""])[0], query.get("hash", [""])[0]))
+                    if parsed.path == "/api/dashboard/explain/status": return self.reply(200, dashboard.explain_status())
                     if parsed.path == "/api/dashboard/guide":
                         return self.reply(200, dashboard.guide(query.get("path", [""])[0], query.get("hash", [""])[0]))
                     if parsed.path in {"/api/dashboard/review/attempt", "/api/dashboard/review/results"}:
@@ -127,7 +129,7 @@ def make_server(journal: Journal, token: str, port: int = 7777, *, review_direct
             return self.reply(404, {"error": "Not found"})
 
         def do_POST(self):
-            if dashboard and self.path in {"/api/dashboard/review/start", "/api/dashboard/review/answer", "/api/dashboard/review/complete"}:
+            if dashboard and self.path in {"/api/dashboard/review/start", "/api/dashboard/review/answer", "/api/dashboard/review/complete", "/api/dashboard/explain"}:
                 # Browser mutations require an explicit local Origin. Collector
                 # authentication and its origin-less extension requests stay separate.
                 if not self.valid_origin() or not self.headers.get("Origin"):
@@ -137,7 +139,10 @@ def make_server(journal: Journal, token: str, port: int = 7777, *, review_direct
                     if not 0 < length <= MAX_BODY: return self.reply(413, {"error": "Request exceeds size limit"})
                     self.connection.settimeout(5)
                     body = json.loads(self.rfile.read(length))
+                    if self.path == "/api/dashboard/explain": return self.reply(200, dashboard.explain(body))
                     return self.reply(200, dashboard.review_post(self.path.rsplit("/", 1)[-1], body))
+                except LLMError as exc:
+                    return self.reply(502, {"error": str(exc)})
                 except (ValueError, TypeError, KeyError, ReviewError, RepoError) as exc:
                     return self.reply(409, {"error": str(exc)})
                 except (OSError, sqlite3.Error):
@@ -179,7 +184,7 @@ def make_server(journal: Journal, token: str, port: int = 7777, *, review_direct
     return server
 
 
-def serve(directory: Path, workspace: Path, port: int, review_directory: Path | None = None) -> None:
+def serve(directory: Path, workspace: Path, port: int, review_directory: Path | None = None, ollama=None) -> None:
     directory = directory.expanduser().resolve()
     workspace = workspace.expanduser().resolve(strict=True)
     if directory == workspace or workspace in directory.parents:
@@ -193,7 +198,7 @@ def serve(directory: Path, workspace: Path, port: int, review_directory: Path | 
         journal = SQLiteStore(directory, workspace)
         token = secrets.token_urlsafe(32)
         try:
-            server = make_server(journal, token, port, review_directory=review_directory)
+            server = make_server(journal, token, port, review_directory=review_directory, ollama=ollama)
         except Exception:
             journal.close()
             raise
