@@ -131,6 +131,13 @@ class GuideBuildTests(SandboxCase):
         guide = build("x = 1\ny = 2\n", "s.py", [[1, 2]])
         self.assertEqual((guide["line_count"], guide["unseen_lines"]), (3, 1))
 
+    def test_pathological_long_lines_stay_fast(self):
+        import time
+        started = time.monotonic()
+        for text in ("  public " + "\t" * 40000 + "x\n", "public " + "a<b>[] " * 5000 + "(\n", "const " + "a" * 200000 + " = (\n"):
+            for name in ("f.java", "f.js", "f.c"): build(text, name, [])
+        self.assertLess(time.monotonic() - started, 2)
+
     def test_empty_and_crlf_text(self):
         self.assertEqual(build("", "e.py", [])["items"], [])
         guide = build("def f():\r\n    return 1\r\n", "w.py", [])

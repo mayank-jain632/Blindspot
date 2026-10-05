@@ -11,6 +11,7 @@ import re
 import subprocess
 
 MAX_ITEMS = 150
+MAX_DECLARATION = 400
 RECENT_DAYS = 90
 NOISE_CALLS = set(dir(builtins))
 CLOSERS = ("}", ")", "]", "end")
@@ -163,7 +164,8 @@ def _pattern_items(lines, patterns):
     starts = []
     for number, line in enumerate(lines, 1):
         stripped = line.strip()
-        if not stripped: continue
+        # Declarations are short; skipping long lines also bounds regex backtracking.
+        if not stripped or len(line) > MAX_DECLARATION: continue
         for kind, regex, group in patterns:
             match = regex.match(line)
             if not match: continue

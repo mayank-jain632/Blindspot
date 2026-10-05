@@ -1,19 +1,39 @@
 # Blindspot
 
-A small local tool that shows which files and source regions have recorded
-editor display evidence, helping developers choose what to revisit.
+**See how much of your code you have actually seen.** When an AI agent writes a lot of your
+project, it is easy to ship code you never looked at. Blindspot runs locally next to VS Code,
+records which lines were on screen, and shows what is still a blind spot, with a study guide
+for the parts you skipped. Display evidence is a starting point for awareness, not proof of
+reading or understanding. Nothing leaves your machine.
 
-**Current goal: a local presentation MVP.** The extension, local receiver,
-SQLite storage and React dashboard are implemented. Risk is the landing view;
-Map, Timeline, Insights and PNG export use the same local records. See [the short v1 design](DESIGN.md) and
-[the simplified roadmap](reports/roadmap-proposal.md).
+![Map: files sized by lines and colored by how much was on screen](docs/screenshots/map.png)
 
-The latest dashboard pass leads with unseen lines, uses plain-language states,
-counts distinct files in the weekly timeline, and keeps measurement details in
-one shared explanation. The next step is a short manual demo in VS Code: record
-one file, leave another untouched, inspect the dashboard, then check pause/resume
-and a visible split pane. See [the agent handoff](context_handoff.md) for current
-status and a ready-to-run checklist.
+| | |
+|---|---|
+| ![Risk queue](docs/screenshots/risk.png) | ![Study guide](docs/screenshots/guide.png) |
+| **Risk**: files ranked by unseen lines and recent commits | **Study guide**: unseen code units, last changes, optional local-model explanations |
+| ![Timeline](docs/screenshots/timeline.png) | ![Insights](docs/screenshots/insights.png) |
+| **Timeline**: files touched per week | **Insights**: quiz results, including confident wrong answers |
+
+## Try it in two minutes
+
+No VS Code needed. This builds an invented sample project with recorded activity:
+
+```sh
+npm --prefix dashboard ci && npm --prefix dashboard run build
+python3 scripts/seed_demo.py                      # writes sandbox/demo
+.venv/bin/python -B -m blindspot observer serve \
+  --workspace sandbox/demo/project --state-dir sandbox/demo/state --port 7777
+```
+
+Open <http://127.0.0.1:7777>. (Screenshots above come from this demo.) To record your own
+project, run the VS Code extension and point the receiver at it as described below.
+
+**Status: a local presentation MVP.** The VS Code extension, local receiver, SQLite storage and
+React dashboard work end to end (Risk, Map, Timeline, Insights, Share card, per-file study guide).
+Scope and decisions are in [the short v1 design](DESIGN.md) and
+[the simplified roadmap](reports/roadmap-proposal.md); [the agent handoff](context_handoff.md)
+has the run checklist.
 
 The localhost site is the main demo surface; VS Code supplies observations and
 recording controls. Display evidence does not prove reading or understanding.
