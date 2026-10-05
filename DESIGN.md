@@ -54,6 +54,9 @@ A per-file study guide (code units, unseen lines, last-changing commits) is part
 detail and a full page. It is deterministic and local. An optional Ollama button adds
 clearly labelled plain-English explanations from a model on the same machine.
 
+Quizzes are authored outside the app: the guide produces a prompt, any chat model writes the
+questions, and Blindspot validates and serves them. Keys are unverified and labelled so.
+
 ## The next step
 
 Run one short dashboard demonstration: record a file, leave

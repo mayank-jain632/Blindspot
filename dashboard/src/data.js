@@ -132,3 +132,6 @@ export function guideMarkdown(guide, scope, explanations = {}) {
   if (!items.length) out.push('Nothing to list.');
   return out.join('\n');
 }
+
+// A stored quiz that covers (part of) a guide unit, if one is waiting to be taken.
+export const quizForUnit = (file, unit) => file.review.available.find(q => q.start_line <= unit.end && unit.start <= q.end_line);

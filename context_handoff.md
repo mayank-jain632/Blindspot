@@ -31,7 +31,11 @@ Keep the project simple; quiz generation is paused.
   Rollback point before it: commit `f21ab92` (local tag `pre-ollama`; the tag could not be pushed).
 - `scripts/seed_demo.py` builds a repeatable sample project with activity and one quiz;
   `scripts/demo.sh` rebuilds the dashboard (its build output is gitignored) and serves it.
-- Known: the browser check's phone-width Map assertion fails intermittently (predates this work).
+- Quiz generation, paste-in path (`blindspot/observer/quizgen.py`): guide card -> prompt -> paste reply -> quiz
+  in the existing review store; results screen has "report wrong" (removes the set). Rollback tag before
+  it: local `pre-quizgen`. Next planned step: let Ollama produce the same JSON automatically, plus a blind
+  second pass that re-answers each question to catch bad keys.
+- Fixed: the Map phone-width flake (the treemap rendered a 900px default before measuring).
 
 ## Next step: manual end-to-end demo
 

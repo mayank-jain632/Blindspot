@@ -8,7 +8,7 @@ import '@fontsource/eb-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-400.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-600.css';
-import { api, calendarAxis, explainApi, directory, directories, filename, gapSummary, guideItems, guideMarkdown, GUIDE_STATES, inRanges, label, lineSpan, missingLines, number, percent, rangeText, states } from './data';
+import { api, calendarAxis, explainApi, directory, directories, filename, gapSummary, guideItems, guideMarkdown, GUIDE_STATES, inRanges, label, lineSpan, quizForUnit, missingLines, number, percent, rangeText, states } from './data';
 import { drawShare, Lanes, Treemap, Weekly } from './charts';
 import './style.css';
 
@@ -229,8 +229,8 @@ function Review({ params }) {
   // This screen never mounts the dashboard shell, state chips, queue or scores.
   return <div className="review-screen"><header className="review-header"><a href="#risk">← Exit review</a>{attempt && <span className="mono">{attempt.target.path}</span>}{question && <div className="review-progress mono"><span>Question {index + 1} of {attempt.questions.length}</span><span className="progress-dots" aria-hidden="true">{attempt.questions.map((q, i) => <i key={q.id} className={i === index ? 'current' : q.submitted ? 'submitted' : ''} />)}</span></div>}</header>
     {error && <p role="alert" className="notice">{error}</p>}
-    {result ? <main className="review-results"><span className="eyebrow">Completed sample</span><h1>Quiz results</h1><p className="mono">{result.questions.filter(q => q.correct).length} / {result.questions.length} answers correct</p><p>{result.current_sample_pass ? 'Quiz passed. Return to Risk to see the updated rank.' : 'Review the explanations, then choose another file.'}</p>
-      {result.questions.map((q, i) => <section key={q.question_id} className={`answer-record ${q.correct ? 'matches' : 'differs'}`}><span className="eyebrow">Question {i + 1} · {q.confidence} · {q.correct ? 'Matches key' : 'Does not match key'}</span><h2>{q.prompt}</h2><p>Your answer: {q.options[q.chosen_index]}</p><p>Answer key: {q.options[q.correct_index]}</p><p>{q.explanation}</p><p className="mono dim">{q.rationale.path}:{q.rationale.start_line}–{q.rationale.end_line}</p><p>{q.rationale.reason}</p></section>)}<a className="button-link" href="#risk">Return to review queue</a></main>
+    {result ? <main className="review-results"><span className="eyebrow">Completed sample</span><h1>Quiz results</h1><p className="guide-meta dim">The answer key was written by a model and is not verified.</p><p className="mono">{result.questions.filter(q => q.correct).length} / {result.questions.length} answers correct</p><p>{result.current_sample_pass ? 'Quiz passed. Return to Risk to see the updated rank.' : 'Review the explanations, then choose another file.'}</p>
+      {result.questions.map((q, i) => <section key={q.question_id} className={`answer-record ${q.correct ? 'matches' : 'differs'}`}><span className="eyebrow">Question {i + 1} · {q.confidence} · {q.correct ? 'Matches key' : 'Does not match key'}</span><h2>{q.prompt}</h2><p>Your answer: {q.options[q.chosen_index]}</p><p>Answer key: {q.options[q.correct_index]}</p><p>{q.explanation}</p><p className="mono dim">{q.rationale.path}:{q.rationale.start_line}–{q.rationale.end_line}</p><p>{q.rationale.reason}</p><ReportQuestion attemptId={result.attempt_id} questionId={q.question_id} /></section>)}<a className="button-link" href="#risk">Return to review queue</a></main>
       : attempt ? <main className="review-layout"><section className="review-code"><div className="source-caption mono">{attempt.target.path} · lines {attempt.target.start_line}–{attempt.target.end_line}</div><Source text={attempt.target.code} start={attempt.target.start_line} review />{attempt.context.map(c => <details key={`${c.path}:${c.start_line}`}><summary className="mono">Context · {c.path}:{c.start_line}–{c.end_line}</summary><Source text={c.code} start={c.start_line} review /></details>)}</section>
         <section className="question-panel">{question ? <><span className="eyebrow">Question</span><h1>{question.prompt}</h1><div className="options">{question.options.map((option, i) => <button key={i} aria-pressed={chosen === i} onClick={() => setChosen(i)} disabled={busy}><span className="option-letter">{String.fromCharCode(65 + i)}</span><span>{option}</span></button>)}</div><div className="confidence"><span className="eyebrow">How sure are you</span><div>{['guessed', 'shaky', 'solid'].map(c => <button key={c} disabled={chosen === null || busy} onClick={() => submit(c)}>{c[0].toUpperCase() + c.slice(1)}</button>)}</div><p>Choose your confidence to submit the answer.</p></div></> : <><h1>Answers recorded</h1><button disabled={busy} onClick={finish}>Finish review</button></>}</section></main> : !error && <Empty title="Loading review">Only source and questions are shown while answering.</Empty>}
   </div>;
@@ -244,6 +244,53 @@ function ExplainBox({ label, note, run }) {
     <span className="eyebrow">Generated by {note.model} on this machine{note.cached ? ' (saved)' : ''}. Unverified, may be wrong.</span>
     <p className="guide-explain-text">{note.text}</p>
     <button onClick={() => run(true)}>Regenerate</button></div>;
+}
+
+function QuizBox({ file, item }) {
+  const [phase, setPhase] = useState('idle'), [made, setMade] = useState(null), [reply, setReply] = useState(''), [error, setError] = useState(''), [done, setDone] = useState(null), [copied, setCopied] = useState(false);
+  const offer = quizForUnit(file, item);
+  const request = { path: file.path, hash: file.content_hash, start: item.start, end: item.end };
+  const start = id => { window.location.hash = `review?set_id=${encodeURIComponent(id)}`; };
+  async function open() {
+    setPhase('loading'); setError('');
+    try { setMade(await explainApi('/api/dashboard/quiz/prompt', request)); setPhase('prompt'); } catch (e) { setError(e.message); setPhase('idle'); }
+  }
+  async function copy() {
+    try { await navigator.clipboard.writeText(made.prompt); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { setError('Copy was blocked. Open “Show prompt” and copy it by hand.'); }
+  }
+  async function create() {
+    setPhase('creating'); setError('');
+    try { setDone(await explainApi('/api/dashboard/quiz/import', { ...request, reply })); setPhase('done'); } catch (e) { setError(e.message); setPhase('prompt'); }
+  }
+  if (phase === 'done') return <div className="quiz-maker"><p><strong>Quiz ready.</strong> {done.question_count} questions{done.duplicate ? ' (you already had this one)' : ''}.</p>
+    {done.warnings.map(w => <p key={w} className="guide-meta">{w}</p>)}
+    <p className="guide-meta dim">{done.key_quality} If a question looks wrong afterwards, report it and the quiz is removed.</p>
+    <button className="guide-explain-button" onClick={() => start(done.set_id)}>Start quiz</button></div>;
+  if (phase === 'idle' || phase === 'loading') return <>
+    {offer && <button className="guide-explain-button" onClick={() => start(offer.set_id)}>Take quiz · {offer.question_count} questions</button>}
+    <button className="guide-quiz-button" disabled={phase === 'loading'} onClick={open}>{phase === 'loading' ? 'Preparing' : offer ? 'Make another quiz' : 'Make a quiz'}</button>
+    {error && <p className="notice" role="alert">{error}</p>}</>;
+  return <div className="quiz-maker">
+    <span className="eyebrow">Quiz for lines {made.start}–{made.end} · {made.question_count} questions</span>
+    {made.note && <p className="guide-meta dim">{made.note}</p>}
+    <ol className="quiz-steps">
+      <li>Copy the prompt. <button onClick={copy}>{copied ? 'Copied' : 'Copy prompt'}</button> <details><summary>Show prompt</summary><textarea readOnly value={made.prompt} rows={8} aria-label="Prompt" /></details></li>
+      <li>Paste it into Claude, ChatGPT or any chat model.</li>
+      <li>Paste the model’s reply here.<textarea value={reply} onChange={e => setReply(e.target.value)} rows={6} placeholder="Paste the reply here" aria-label="Model reply" /></li></ol>
+    {error && <p className="notice" role="alert">{error}</p>}
+    <div><button className="guide-explain-button" disabled={!reply.trim() || phase === 'creating'} onClick={create}>{phase === 'creating' ? 'Checking' : 'Create quiz'}</button><button onClick={() => { setPhase('idle'); setError(''); }}>Cancel</button></div>
+    <p className="guide-meta dim">Nothing is sent anywhere by Blindspot. The answer key comes from the model you paste from and is not verified.</p></div>;
+}
+
+function ReportQuestion({ attemptId, questionId }) {
+  const [step, setStep] = useState('idle'), [error, setError] = useState('');
+  async function remove() {
+    try { await explainApi('/api/dashboard/review/report', { attempt_id: attemptId, question_id: questionId }); setStep('done'); } catch (e) { setError(e.message); setStep('idle'); }
+  }
+  if (step === 'done') return <p className="guide-meta dim">Quiz removed. It no longer counts toward your results.</p>;
+  return <div className="report-question">{error && <p className="notice" role="alert">{error}</p>}
+    {step === 'idle' ? <button onClick={() => setStep('confirm')}>This answer key looks wrong</button>
+      : <><span className="guide-meta">Remove this whole quiz? Its results stop counting.</span> <button onClick={remove}>Remove quiz</button> <button onClick={() => setStep('idle')}>Keep it</button></>}</div>;
 }
 
 const CODE_CAP = 120;
@@ -332,7 +379,7 @@ function GuideBody({ file, data }) {
       {guide.overview.imports.length > 0 && <p className="guide-meta mono dim">Uses {guide.overview.imports.join(', ')}</p>}
       {local?.available && <ExplainBox label="Summarize this file" note={notes.file} run={regenerate => explain(null, regenerate)} />}
       {scope === 'unseen' && guide.recent_changes.length > 0 && <div className="guide-changes"><h2>Changes you haven’t seen</h2><ul>{guide.recent_changes.map(c => <li key={`${c.commit}${c.date}${c.summary}`} className="mono"><span className="dim">{c.date || 'uncommitted'}</span> {c.summary} <span className="dim">· {c.unseen} unseen {c.unseen === 1 ? 'line' : 'lines'}</span></li>)}</ul></div>}
-      <ol className="guide-list">{items.map(i => <GuideItem key={key(i)} id={key(i)} item={i} code={<>{local?.available && <ExplainBox label="Explain" note={notes[`${i.start}-${i.end}`]} run={regenerate => explain(i, regenerate)} />}{codeFor(i)}</>} />)}</ol>
+      <ol className="guide-list">{items.map(i => <GuideItem key={key(i)} id={key(i)} item={i} code={<><QuizBox file={file} item={i} />{local?.available && <ExplainBox label="Explain" note={notes[`${i.start}-${i.end}`]} run={regenerate => explain(i, regenerate)} />}{codeFor(i)}</>} />)}</ol>
       {guide.notes.map(n => <p key={n} className="guide-meta dim">{n}</p>)}
     </div>
   </main>;

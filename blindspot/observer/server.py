@@ -129,7 +129,7 @@ def make_server(journal: Journal, token: str, port: int = 7777, *, review_direct
             return self.reply(404, {"error": "Not found"})
 
         def do_POST(self):
-            if dashboard and self.path in {"/api/dashboard/review/start", "/api/dashboard/review/answer", "/api/dashboard/review/complete", "/api/dashboard/explain"}:
+            if dashboard and self.path in {"/api/dashboard/review/start", "/api/dashboard/review/answer", "/api/dashboard/review/complete", "/api/dashboard/explain", "/api/dashboard/review/report", "/api/dashboard/quiz/prompt", "/api/dashboard/quiz/import"}:
                 # Browser mutations require an explicit local Origin. Collector
                 # authentication and its origin-less extension requests stay separate.
                 if not self.valid_origin() or not self.headers.get("Origin"):
@@ -140,6 +140,9 @@ def make_server(journal: Journal, token: str, port: int = 7777, *, review_direct
                     self.connection.settimeout(5)
                     body = json.loads(self.rfile.read(length))
                     if self.path == "/api/dashboard/explain": return self.reply(200, dashboard.explain(body))
+                    if self.path == "/api/dashboard/quiz/prompt": return self.reply(200, dashboard.quiz_prompt(body))
+                    if self.path == "/api/dashboard/quiz/import": return self.reply(200, dashboard.quiz_import(body))
+                    if self.path == "/api/dashboard/review/report": return self.reply(200, dashboard.review_report(body))
                     return self.reply(200, dashboard.review_post(self.path.rsplit("/", 1)[-1], body))
                 except LLMError as exc:
                     return self.reply(502, {"error": str(exc)})

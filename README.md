@@ -89,6 +89,13 @@ first; **Whole file** lists everything in order. Open it from the **Guide** butt
 "Open full guide" in file detail, for a full page with an outline, expandable code, Markdown copy and print. No model is used and the code never
 leaves the machine. It describes display evidence, not understanding.
 
+**Quizzes from any chat model.** On the full guide page, **Make a quiz** on a code unit gives you a
+prompt to paste into Claude, ChatGPT or any chat model. Paste its JSON reply back, and Blindspot
+checks the shape, the cited lines and the commit it is tied to, then opens the existing review
+screen. Quizzes are tied to committed code (commit first), cover 10 to 300 lines, and carry an
+answer key written by the model and not verified, so a question that looks wrong can be reported
+after you finish, which removes that quiz. Blindspot itself makes no model call for this.
+
 **Optional local explanations.** If [Ollama](https://ollama.com) is running, the full guide page
 gets an **Explain** button on each code unit and **Summarize this file**. Install a model once
 (for example `ollama pull qwen2.5-coder:7b`; any chat model works) and pick it in the sidebar.

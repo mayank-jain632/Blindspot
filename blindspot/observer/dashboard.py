@@ -10,10 +10,13 @@ import subprocess
 
 from ..review import ReviewError
 from ..review.service import ReviewService
-from ..review.targets import binding
+from ..review.service import validate_questions
+from ..review.targets import binding, export_target, text_at
 from ..scan.repo import RepoError, Repository
 from .explain import ExplanationCache, Ollama, file_prompt, unit_prompt, valid_model, SYSTEM
 from .guide import blame, build as build_guide
+from .quizgen import QuizError, build_prompt, choose_range, grounding_warnings, normalize, question_count
+from .store import digest
 from .visibility import current_files, current_source, file_stats
 
 STATES = {
@@ -232,6 +235,61 @@ class Dashboard:
         result = {"text": reply, "model": model, "scope": "unit" if item else "file", "generated_at": datetime.now(timezone.utc).isoformat()}
         self.explanations.put(key, result)
         return {**result, "cached": False}
+
+    def _quiz_target(self, body, allowed):
+        if not isinstance(body, dict) or not set(body) <= allowed | {"path", "hash", "start", "end"} or any(
+                type(body.get(k)) is not int for k in ("start", "end")):
+            raise ValueError("A quiz needs a path, hash and the unit's start and end lines.")
+        path = body.get("path")
+        text, guide = self._prepare_guide(path, body.get("hash"))
+        item = next((i for i in guide["items"] if i["start"] == body["start"] and i["end"] == body["end"]), None)
+        if not item: raise ValueError("Unknown code unit; refresh and try again.")
+        try:
+            repo = Repository(self.store.workspace)
+            committed = text_at(repo, repo.head, path)
+        except (ReviewError, RepoError) as exc:
+            if "absent at this revision" in str(exc):
+                raise QuizError("This file is not committed yet. Quizzes are tied to committed code, so commit it and refresh.") from None
+            raise QuizError(str(exc)) from None
+        if digest(committed) != digest(text):
+            raise QuizError("This file has uncommitted changes. Quizzes are tied to committed code, so commit them and refresh.")
+        start, end, note = choose_range(text, item)
+        try: manifest = export_target(self.store.workspace / path, start, end, name=f"guide:{item['name']}"[:200])
+        except (ReviewError, RepoError) as exc: raise QuizError(str(exc)) from None
+        return manifest, item, start, end, note
+
+    def quiz_prompt(self, body):
+        """A prompt the user can paste into any chat model to write a quiz for one unit."""
+        manifest, item, start, end, note = self._quiz_target(body, set())
+        count = question_count(start, end)
+        return {"prompt": build_prompt(manifest["target"]["path"], start, end, manifest["target"]["code"], item["unseen_ranges"], count),
+                "start": start, "end": end, "question_count": count, "note": note}
+
+    def quiz_import(self, body):
+        """Check a model's pasted reply and store it as a quiz for the same unit."""
+        manifest, item, start, end, note = self._quiz_target(body, {"reply"})
+        path = manifest["target"]["path"]
+        questions = normalize(body.get("reply"), path, start, end)
+        try: validate_questions(questions, manifest)
+        except ReviewError as exc: raise QuizError(str(exc)) from None
+        result = self.reviews.import_quiz({"schema_version": 1, "generator": "pasted from an external chat model",
+                                           "manifest": manifest, "questions": questions}, datetime.now(timezone.utc))
+        if result["status"] != "validated": raise QuizError(result.get("reason") or "The quiz was rejected.")
+        return {"set_id": result["set_id"], "duplicate": bool(result.get("duplicate")), "question_count": len(questions),
+                "warnings": grounding_warnings(questions, manifest["target"]["code"]),
+                "key_quality": "Answer keys come from the model that wrote the quiz and are not verified."}
+
+    def review_report(self, body):
+        """Remove a quiz whose answer key the reviewer believes is wrong; history is kept."""
+        if not isinstance(body, dict) or set(body) != {"attempt_id", "question_id"}: raise ReviewError("Report requires an attempt and question ID.")
+        data = self.reviews.store.read()
+        attempt = data["attempts"].get(body["attempt_id"])
+        if not attempt or not attempt["completed_at"]: raise ReviewError("Finish the quiz before reporting a question.")
+        quiz = data["sets"][attempt["set_id"]]
+        number = next((n for n, q in enumerate(quiz["questions"], 1) if q["id"] == body["question_id"]), None)
+        if number is None: raise ReviewError("Unknown question ID.")
+        prompt = quiz["questions"][number - 1]["prompt"][:80]
+        return self.reviews.reject(quiz["id"], f"Reported wrong after review: question {number} ({prompt})", datetime.now(timezone.utc))
 
     def _require_binding(self, set_id):
         data = self.reviews.store.read()

@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { gapSummary, filename, layout, number, states, label } from './data';
 
 export function Treemap({ files, onSelect }) {
   const ref = useRef(null);
   const [size, setSize] = useState([900, 600]);
+  // Measure before the first paint so a narrow window never renders the 900px default.
+  useLayoutEffect(() => { const box = ref.current.getBoundingClientRect(); setSize([Math.max(1, box.width), Math.max(1, box.height)]); }, []);
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => setSize([Math.max(1, entry.contentRect.width), Math.max(1, entry.contentRect.height)]));
     observer.observe(ref.current); return () => observer.disconnect();

@@ -117,7 +117,7 @@ progress::-moz-progress-bar { background: var(--sun); }
 .map-main { padding: 0 24px 24px; min-width: 0; }
 .map-toolbar { display: flex; flex-wrap: wrap; gap: 24px; min-height: 56px; align-items: center; border-bottom: 1px solid var(--border); margin-bottom: 20px; font-size: 11px; }
 .map-toolbar span:last-child { margin-left: auto; }
-.treemap { position: relative; width: 100%; height: max(540px, 70vh); }
+.treemap { position: relative; width: 100%; height: max(540px, 70vh); overflow: hidden; }
 .map-cell, .directory-label { position: absolute; }
 .map-cell { border: none; border-radius: 0; padding: 10px; background-color: var(--fill); color: var(--on); overflow: hidden; text-align: left; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: flex-start; }
 .state-no_evidence.map-cell { background-image: radial-gradient(circle at 30% 20%, rgba(255,210,122,.28), transparent 65%); }
@@ -366,3 +366,15 @@ h3.guide-name { margin: 0; font: 600 14px var(--mono); }
 .guide-explain-text { white-space: pre-wrap; font-size: 16px; color: var(--text); margin: 0 0 12px; overflow-wrap: anywhere; }
 .guide-explain button { min-height: 32px; background: transparent; }
 @media print { .guide-explain-button, .local-model { display: none; } }
+
+/* Quiz maker and reporting */
+.guide-quiz-button { margin-top: 12px; margin-right: 8px; min-height: 36px; background: transparent; }
+.quiz-maker { margin-top: 12px; padding: 14px 16px; background: var(--panel); border-left: 2px solid var(--sun); }
+.quiz-steps { margin: 10px 0; padding-left: 20px; display: grid; gap: 10px; }
+.quiz-steps button, .quiz-maker > div button { min-height: 36px; margin-right: 8px; background: transparent; }
+.quiz-steps textarea { display: block; width: 100%; margin-top: 8px; padding: 10px 12px; color: var(--text); background: var(--inset); border: 1px solid var(--border); border-radius: 3px; font: 12px/1.5 var(--mono); resize: vertical; }
+.quiz-steps details { margin-top: 8px; }
+.quiz-steps summary { min-height: 0; padding: 4px 0; font-size: 11px; }
+.report-question { margin-top: 14px; }
+.report-question button { min-height: 32px; background: transparent; margin-right: 8px; }
+@media print { .guide-quiz-button, .quiz-maker, .report-question { display: none; } }
