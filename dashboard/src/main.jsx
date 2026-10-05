@@ -43,7 +43,7 @@ function Risk({ data, inspect }) {
         <td><Chip state={f.state} tested={f.review.tested} /></td>{showMissing && <td className="numeric missing-lines">{missingLines(f) === null ? 'Unknown' : <>{number(missingLines(f))}<i className="gap-bar" style={{ '--w': `${Math.min(100, 100 * missingLines(f) / (f.line_count || 1))}%` }} /></>}</td>}
         {showCommits && <td className="numeric">{Number.isFinite(f.commits_90d) ? number(f.commits_90d) : 'Unknown'}</td>}
         <td>{f.review.confidently_wrong ? <span className="attention-text">Confidently wrong</span> : f.review.passing_samples ? <Chip state="sample_passed" /> : <span className="dim">{f.review.tested ? 'Tested' : f.review.stale_results ? 'Changed since quiz' : 'Never tested'}</span>}</td>
-        <td><ReviewAction file={f} inspect={inspect} /></td>
+        <td><div className="row-actions">{!f.current_uncertain && <a className="button-link" href={`#guide?path=${encodeURIComponent(f.path)}`}>Guide</a>}<ReviewAction file={f} inspect={inspect} /></div></td>
       </tr>)}</tbody></table></div>}
     {files.length > 0 && <p className="footnote">Hatched means never tested.</p>}
   </main>;
@@ -83,11 +83,20 @@ function jumpTo(root, line) {
   row.scrollIntoView({ block: 'center', behavior: 'smooth' });
   row.classList.add('jump'); setTimeout(() => row.classList.remove('jump'), 1800);
 }
-function GuideItem({ item, jump }) {
+function useGuide(file) {
+  const [guide, setGuide] = useState(null), [error, setError] = useState('');
+  useEffect(() => {
+    let cancelled = false; setGuide(null); setError('');
+    api(`/api/dashboard/guide?${new URLSearchParams({ path: file.path, hash: file.content_hash })}`).then(g => { if (!cancelled) setGuide(g); }).catch(e => { if (!cancelled) setError(e.message); });
+    return () => { cancelled = true; };
+  }, [file.path, file.content_hash, file.current_uncertain]);
+  return [guide, error];
+}
+function GuideItem({ item, jump, id, code }) {
   const change = item.changes[0];
   const first = item.unseen_ranges[0]?.[0] ?? item.start;
-  return <li className="guide-item">
-    <div className="guide-head"><button className="guide-name mono" onClick={() => jump(first)} title="Show these lines in the source">{item.name}</button>
+  return <li className="guide-item" id={id}>
+    <div className="guide-head">{jump ? <button className="guide-name mono" onClick={() => jump(first)} title="Show these lines in the source">{item.name}</button> : <h3 className="guide-name mono">{item.name}</h3>}
       <span className={`state-chip state-${GUIDE_STATES[item.state]}`}>{GUIDE_LABELS[item.state]}</span></div>
     <div className="guide-lines mono">{lineSpan(item)} · {item.unseen === 0 ? `all ${item.lines} lines seen` : `${item.unseen} of ${item.lines} never on screen`}{item.unseen > 0 && item.unseen_ranges.length > 0 && <> ({rangeText(item.unseen_ranges)}{item.unseen_ranges.length === 8 ? ', …' : ''})</>}</div>
     {item.doc && <p className="guide-doc">{item.doc}</p>}
@@ -97,9 +106,10 @@ function GuideItem({ item, jump }) {
       {item.raises?.length > 0 && <span>Raises {item.raises.join(', ')}</span>}
       {item.branches > 0 && <span>{item.branches} {item.branches === 1 ? 'branch' : 'branches'}</span>}</div>}
     {change && <div className="guide-change mono dim">Last changed {change.date || 'since the last commit'}: {change.summary}{item.changes.length > 1 && ` (+${item.changes.length - 1} more)`}</div>}
+    {code}
   </li>;
 }
-function StudyGuide({ guide, error, root }) {
+function StudyGuide({ guide, error, root, close }) {
   const [scope, setScope] = useState('unseen'), [all, setAll] = useState(false), [copied, setCopied] = useState(false);
   if (error) return <section className="study-guide"><h3>Study guide</h3><p className="notice">{error}</p></section>;
   if (!guide) return <section className="study-guide"><h3>Study guide</h3><p className="dim">Loading guide.</p></section>;
@@ -113,6 +123,7 @@ function StudyGuide({ guide, error, root }) {
       <div className="guide-toggle" role="group" aria-label="Guide scope">
         <button aria-pressed={scope === 'unseen'} onClick={() => { setScope('unseen'); setAll(false); }}>Unseen code</button>
         <button aria-pressed={scope === 'whole'} onClick={() => { setScope('whole'); setAll(false); }}>Whole file</button></div></div>
+    <button className="guide-open" onClick={() => { close(); window.location.hash = `guide?path=${encodeURIComponent(guide.path)}`; }}>Open full guide</button>
     <p className="guide-note">Built from the code’s structure and Git history, with no AI, so nothing here is made up. On screen is not the same as understood.</p>
     <p className="guide-summary mono">{guide.unseen_lines === 0 ? 'Every line of this file has been on screen.' : `${number(guide.unseen_lines)} lines never on screen · ${guide.overview.units_with_unseen} of ${guide.overview.units} code units`}</p>
     {guide.overview.doc && <p className="guide-doc">{guide.overview.doc}</p>}
@@ -127,13 +138,12 @@ function StudyGuide({ guide, error, root }) {
 }
 
 function FileDetail({ file, data, close }) {
-  const ref = useRef(null), [source, setSource] = useState(null), [error, setError] = useState(''), [guide, setGuide] = useState(null), [guideError, setGuideError] = useState('');
+  const ref = useRef(null), [source, setSource] = useState(null), [error, setError] = useState('');
+  const [guide, guideError] = useGuide(file);
   useEffect(() => { ref.current.showModal(); }, []);
   useEffect(() => {
     let cancelled = false; setSource(null); setError('');
     api(`/api/dashboard/source?${new URLSearchParams({ path: file.path, hash: file.content_hash })}`).then(s => { if (!cancelled) setSource(s); }).catch(e => { if (!cancelled) setError(e.message); });
-    setGuide(null); setGuideError('');
-    api(`/api/dashboard/guide?${new URLSearchParams({ path: file.path, hash: file.content_hash })}`).then(g => { if (!cancelled) setGuide(g); }).catch(e => { if (!cancelled) setGuideError(e.message); });
     return () => { cancelled = true; };
   }, [file.path, file.content_hash, file.current_uncertain]);
   const editor = `vscode://file${encodeURI(`${data.workspace}/${file.path}`).replaceAll('#', '%23').replaceAll('?', '%3F')}`;
@@ -143,7 +153,7 @@ function FileDetail({ file, data, close }) {
     <div className="detail-meta mono dim">{number(file.line_count)} lines · {file.origin}</div><div className="detail-state"><Chip state={file.state} tested={file.review.tested} />{file.review.passing_samples > 0 && <Chip state="sample_passed" />}</div>
     <section className="record"><h3>This file</h3><ul>{file.evidence.map((e, i) => <li key={i}><span className={`evidence-dot state-${e.state}`} /><div><p className="mono">{e.text}</p></div></li>)}</ul>
       </section>
-    <StudyGuide guide={guide} error={guideError} root={ref} />
+    <StudyGuide guide={guide} error={guideError} root={ref} close={close} />
     <section className="detail-source"><h3>The source</h3>{error ? <p className="notice">{error}</p> : current ? <Source text={source.text} file={file} /> : <p className="dim">Loading file.</p>}</section>
     <div className="detail-actions"><button disabled={!file.review.available.length || !current} onClick={() => startReview(file)}>Review this file</button><a href={editor}>Open in editor</a></div>
     {!file.review.available.length && <p className="footnote">No quiz ready for this file. Choose another file in Risk.</p>}
@@ -226,7 +236,75 @@ function Review({ params }) {
   </div>;
 }
 
-function DashboardApp({ page }) {
+const CODE_CAP = 120;
+function GuidePage({ data, path }) {
+  const file = data.files.find(f => f.path === path);
+  if (!file) return <main className="standard-page"><Empty title="File not found">Choose a file in Risk to open its guide.</Empty><a className="button-link" href="#risk">Back to Risk</a></main>;
+  return <GuideBody key={file.path} file={file} data={data} />;
+}
+function GuideBody({ file, data }) {
+  const [guide, error] = useGuide(file);
+  const [scope, setScope] = useState('unseen'), [open, setOpen] = useState(() => new Set()), [source, setSource] = useState(null), [copied, setCopied] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    api(`/api/dashboard/source?${new URLSearchParams({ path: file.path, hash: file.content_hash })}`).then(s => { if (!cancelled) setSource(s); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [file.path, file.content_hash]);
+  const editor = `vscode://file${encodeURI(`${data.workspace}/${file.path}`).replaceAll('#', '%23').replaceAll('?', '%3F')}`;
+  if (error) return <main className="standard-page"><p className="notice">{error}</p><a className="button-link" href="#risk">Back to Risk</a></main>;
+  if (!guide) return <main className="standard-page"><Empty title="Loading guide">Reading the file’s structure and Git history.</Empty></main>;
+  const items = guideItems(guide, scope), key = i => `u${i.start}-${i.end}-${i.name}`;
+  const toggle = i => setOpen(prev => { const next = new Set(prev); next.has(key(i)) ? next.delete(key(i)) : next.add(key(i)); return next; });
+  function goto(i) {
+    setOpen(prev => new Set(prev).add(key(i)));
+    setTimeout(() => document.getElementById(key(i))?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 0);
+  }
+  async function copy() {
+    try { await navigator.clipboard.writeText(guideMarkdown(guide, scope)); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard unavailable */ }
+  }
+  const lines = source?.text.split('\n');
+  const codeFor = i => {
+    if (!open.has(key(i))) return <button className="guide-code-toggle" onClick={() => toggle(i)} aria-expanded="false">Show code</button>;
+    const end = Math.min(i.end, i.start + CODE_CAP - 1);
+    return <div className="guide-code"><button className="guide-code-toggle" onClick={() => toggle(i)} aria-expanded="true">Hide code</button>
+      {lines ? <><Source text={lines.slice(i.start - 1, end).join('\n')} file={file} start={i.start} />{end < i.end && <p className="guide-meta dim">Showing the first {CODE_CAP} lines. Open the file for the rest.</p>}</> : <p className="dim">Loading code.</p>}</div>;
+  };
+  return <main className="guide-layout">
+    <aside className="guide-sidebar">
+      <div className="rollup">
+        <span className="eyebrow">Study guide</span>
+        <h1 className="mono guide-file">{filename(file.path)}</h1>
+        <p className="mono dim">{directory(file.path)}</p>
+        <div className={`headline ${guide.unseen_lines === 0 ? 'headline-words' : ''}`}>{guide.unseen_lines === 0 ? 'All seen' : `${number(guide.unseen_lines)} lines`}</div>
+        <p>{guide.unseen_lines === 0 ? 'Every line has been on screen.' : `never on screen, across ${guide.overview.units_with_unseen} of ${guide.overview.units} code units`}</p>
+      </div>
+      <div className="rollup">
+        <div className="guide-toggle" role="group" aria-label="Guide scope">
+          <button aria-pressed={scope === 'unseen'} onClick={() => setScope('unseen')}>Unseen code</button>
+          <button aria-pressed={scope === 'whole'} onClick={() => setScope('whole')}>Whole file</button></div>
+        <span className="eyebrow outline-title">{scope === 'unseen' ? 'Read first' : 'In file order'}</span>
+        <ol className="guide-outline">{items.map(i => <li key={key(i)}><button onClick={() => goto(i)}><span className="mono">{i.name}</span><small className="mono">{i.unseen === 0 ? 'seen' : `${i.unseen} of ${i.lines} unseen`}</small><i className="gap-bar" style={{ '--w': `${100 * i.unseen / i.lines}%` }} /></button></li>)}</ol>
+        {items.length === 0 && <p className="dim">{guide.items.length === 0 ? 'No code units found.' : 'Nothing left unseen.'}</p>}
+      </div>
+      <div className="rollup guide-actions">
+        <button onClick={copy} disabled={items.length === 0}>{copied ? 'Copied' : 'Copy as Markdown'}</button>
+        <button onClick={() => window.print()}>Print</button>
+        <a className="button-link" href={editor}>Open in editor</a>
+        <a className="button-link" href="#risk">Back to Risk</a>
+      </div>
+    </aside>
+    <div className="guide-main">
+      <p className="guide-note">Built from the code’s structure and Git history, with no AI, so nothing here is made up. On screen is not the same as understood.</p>
+      {guide.overview.doc && <p className="guide-doc">{guide.overview.doc}</p>}
+      {guide.overview.imports.length > 0 && <p className="guide-meta mono dim">Uses {guide.overview.imports.join(', ')}</p>}
+      {scope === 'unseen' && guide.recent_changes.length > 0 && <div className="guide-changes"><h2>Changes you haven’t seen</h2><ul>{guide.recent_changes.map(c => <li key={`${c.commit}${c.date}${c.summary}`} className="mono"><span className="dim">{c.date || 'uncommitted'}</span> {c.summary} <span className="dim">· {c.unseen} unseen {c.unseen === 1 ? 'line' : 'lines'}</span></li>)}</ul></div>}
+      <ol className="guide-list">{items.map(i => <GuideItem key={key(i)} id={key(i)} item={i} code={codeFor(i)} />)}</ol>
+      {guide.notes.map(n => <p key={n} className="guide-meta dim">{n}</p>)}
+    </div>
+  </main>;
+}
+
+function DashboardApp({ page, query }) {
   const [data, setData] = useState(null), [error, setError] = useState(''), [selected, setSelected] = useState(null), [busy, setBusy] = useState(false);
   async function refresh() {
     setBusy(true); try { const next = await api('/api/dashboard'); setData(next); setError(''); } catch (e) { setError(e.message); } finally { setBusy(false); }
@@ -240,7 +318,7 @@ function DashboardApp({ page }) {
     {!data ? <Empty title={error ? 'Receiver unavailable' : 'Loading files'}>Start the local server, then refresh.</Empty> : <>
       <div className="connection-strip mono" title="Extension connection"><span>{data.health.sessions.some(s => s.connection_state === 'connected' && s.status === 'recording') ? 'Recording connected' : 'No active recording'}</span><span>Updated {new Date(data.generated_at).toLocaleTimeString()}</span><span>Local only</span></div>
       {data.review.error && <p className="notice">Cannot load quizzes. Check the quiz folder and refresh.</p>}
-      {page === 'map' ? <MapView data={data} inspect={inspect} /> : page === 'timeline' ? <Timeline data={data} inspect={inspect} /> : page === 'insights' ? <Insights data={data} /> : page === 'share' ? <Share data={data} /> : <Risk data={data} inspect={inspect} />}
+      {page === 'guide' ? <GuidePage data={data} path={new URLSearchParams(query).get('path') || ''} /> : page === 'map' ? <MapView data={data} inspect={inspect} /> : page === 'timeline' ? <Timeline data={data} inspect={inspect} /> : page === 'insights' ? <Insights data={data} /> : page === 'share' ? <Share data={data} /> : <Risk data={data} inspect={inspect} />}
       {data.inventory_diagnostics.length > 0 && <p className="notice">Some files could not be loaded. Check the project folder and refresh.</p>}
       {file && <FileDetail key={file.path} file={file} data={data} close={() => setSelected(null)} />}
     </>}
@@ -271,7 +349,7 @@ function Router() {
   const [hash, setHash] = useState(window.location.hash);
   useEffect(() => { const change = () => setHash(window.location.hash); window.addEventListener('hashchange', change); return () => window.removeEventListener('hashchange', change); }, []);
   const [page, query = ''] = hash.replace(/^#/, '').split('?');
-  return <>{page === 'review' ? <Review key={hash} params={new URLSearchParams(query)} /> : <DashboardApp page={page || 'risk'} />}<Methodology /></>;
+  return <>{page === 'review' ? <Review key={hash} params={new URLSearchParams(query)} /> : <DashboardApp page={page || 'risk'} query={query} />}<Methodology /></>;
 }
 
 createRoot(document.getElementById('root')).render(<Router />);

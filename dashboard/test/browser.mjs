@@ -48,6 +48,18 @@ try {
   await page.locator('.guide-name').first().click();
   await expect(page.getByRole('dialog').locator('.source-line.jump')).toHaveCount(1);
   await screenshot('file-detail');
+  await page.getByRole('button', { name: 'Open full guide' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'a.py' })).toBeVisible();
+  await expect(page.locator('.guide-item')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Show code' }).click();
+  await expect(page.locator('.guide-code .source-line').first()).toContainText('LIMIT = 10');
+  await page.getByRole('button', { name: 'Whole file' }).click();
+  await expect(page.locator('.guide-outline li')).toHaveCount(1);
+  await screenshot('guide');
+  await page.getByRole('link', { name: 'Back to Risk' }).click();
+  await expect(page.getByRole('heading', { name: 'Files with gaps' })).toBeVisible();
+  await page.locator('.file-link').filter({ hasText: 'a.py' }).click();
   await page.getByRole('button', { name: 'Review this file', exact: true }).click();
   await expect(page.locator('.question-panel h1')).toHaveText('Question 0: first');
   await expect(page.locator('.state-chip, .app-header, .connection-strip, .headline, .risk-table')).toHaveCount(0);
@@ -112,6 +124,9 @@ try {
     expect(await page.locator('body').innerText()).not.toMatch(/eligible|current source|observer|binding|collector|stored|\brecord\b/i);
     await expect(page.getByRole('button', { name: 'How this is measured', exact: true })).toBeVisible();
   }
+  await page.goto(config.url + '#guide?path=a.py');
+  await expect(page.locator('.guide-item')).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   // Exercise the empty-column and zero-gap branches with fixture responses.
   let scenario = 'unknown';
   await page.route('**/api/dashboard', async route => {

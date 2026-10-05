@@ -65,7 +65,8 @@ sample reduces dashboard queue priority without changing display percentages.
 code's structure (Python AST, patterns for other languages) and `git blame`. It lists each
 function, class or section with how many of its lines were never on screen, what it calls,
 and the commit that last changed it. **Unseen code** shows only units with gaps, largest
-first; **Whole file** lists everything in order. No model is used and the code never
+first; **Whole file** lists everything in order. Open it from the **Guide** button on a Risk row, or
+"Open full guide" in file detail, for a full page with an outline, expandable code, Markdown copy and print. No model is used and the code never
 leaves the machine. It describes display evidence, not understanding.
 
 The [data contract and design adaptations](reports/dashboard-contract.md) explain
