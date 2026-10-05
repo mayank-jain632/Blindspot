@@ -61,6 +61,13 @@ in the observer state directory. No matching unanswered quiz means the Review
 action is unavailable; quiz generation remains paused. Passing a current eligible
 sample reduces dashboard queue priority without changing display percentages.
 
+**Study guide.** File detail includes a guide for the selected file, built only from the
+code's structure (Python AST, patterns for other languages) and `git blame`. It lists each
+function, class or section with how many of its lines were never on screen, what it calls,
+and the commit that last changed it. **Unseen code** shows only units with gaps, largest
+first; **Whole file** lists everything in order. No model is used and the code never
+leaves the machine. It describes display evidence, not understanding.
+
 The [data contract and design adaptations](reports/dashboard-contract.md) explain
 what is measured, inferred, and unavailable. Check the implementation with:
 

@@ -12,7 +12,8 @@ from ..review import ReviewError
 from ..review.service import ReviewService
 from ..review.targets import binding
 from ..scan.repo import RepoError, Repository
-from .visibility import current_files, current_source
+from .guide import blame, build as build_guide
+from .visibility import current_files, current_source, file_stats
 
 STATES = {
     "current document state uncertain": "uncertain",
@@ -185,6 +186,20 @@ class Dashboard:
 
     def source(self, path, expected_hash):
         return current_source(self.store, path, expected_hash)
+
+    def guide(self, path, expected_hash):
+        """Study guide for one file; structure and Git history only, no model."""
+        with self.store.lock:
+            files, _ = current_files(self.store)
+            file = next((f for f in files if f["path"] == path), None)
+            if not file: raise ValueError("File is outside the eligible current inventory")
+            if file["current_uncertain"]: raise ValueError("Current document state is uncertain; resume recording and refresh")
+            if file["content_hash"] != expected_hash: raise ValueError("Source changed since the overview; refresh before opening the guide")
+            stats = file_stats(self.store, file)
+            text, origin = file["text"], file["origin"]
+        # Blame reads the saved file, so it only applies when the text came from disk.
+        history = blame(self.store.workspace, path, len(text.split("\n"))) if origin == "disk" else None
+        return build_guide(text, path, stats["reported_ranges"], history)
 
     def _require_binding(self, set_id):
         data = self.reviews.store.read()

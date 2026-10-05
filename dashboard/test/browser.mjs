@@ -39,6 +39,14 @@ try {
   await expect(page.getByRole('dialog').locator('.source-line')).toHaveCount(21);
   await expect(page.getByRole('dialog')).toContainText('3 of 21 lines seen.');
   await expect(page.getByRole('dialog').locator('.source-line.untested')).toHaveCount(21);
+  await expect(page.getByRole('heading', { name: 'Study guide' })).toBeVisible();
+  await expect(page.locator('.guide-item')).toHaveCount(1);
+  await expect(page.locator('.guide-item').first()).toContainText('LIMIT = 10');
+  await page.getByRole('button', { name: 'Whole file' }).click();
+  await expect(page.locator('.guide-item')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Unseen code' }).click();
+  await page.locator('.guide-name').first().click();
+  await expect(page.getByRole('dialog').locator('.source-line.jump')).toHaveCount(1);
   await screenshot('file-detail');
   await page.getByRole('button', { name: 'Review this file', exact: true }).click();
   await expect(page.locator('.question-panel h1')).toHaveText('Question 0: first');

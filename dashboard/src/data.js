@@ -94,3 +94,28 @@ export function directories(files) {
   }
   return [...grouped.values()].sort((a, b) => b.uncertain - a.uncertain || (percent(a.reported, a.lines) ?? -1) - (percent(b.reported, b.lines) ?? -1) || a.name.localeCompare(b.name));
 }
+
+// Study guide: the server returns every code unit; the toggle only filters and orders.
+export const GUIDE_STATES = { unseen: 'no_evidence', partial: 'partial', seen: 'reported' };
+export const lineSpan = i => i.start === i.end ? `Line ${i.start}` : `Lines ${i.start}–${i.end}`;
+export function guideItems(guide, scope) {
+  if (scope === 'whole') return guide.items;
+  return guide.items.filter(i => i.unseen > 0).sort((a, b) => b.unseen - a.unseen || a.start - b.start);
+}
+export const rangeText = ranges => ranges.map(([a, b]) => a === b ? `${a}` : `${a}–${b}`).join(', ');
+export function guideMarkdown(guide, scope) {
+  const items = guideItems(guide, scope);
+  const out = [`# Study guide: ${guide.path}`, '',
+    scope === 'whole' ? 'Every code unit, in file order.' : `${guide.unseen_lines} lines were never on screen. Read these first.`, ''];
+  for (const i of items) {
+    out.push(`## ${i.name} (${lineSpan(i).toLowerCase()})`, `- ${i.unseen} of ${i.lines} lines never on screen`);
+    if (i.signature) out.push(`- \`${i.signature}\``);
+    if (i.doc) out.push(`- ${i.doc}`);
+    if (i.calls?.length) out.push(`- Calls: ${i.calls.join(', ')}`);
+    if (i.raises?.length) out.push(`- Raises: ${i.raises.join(', ')}`);
+    for (const c of i.changes.slice(0, 2)) out.push(`- Last changed ${c.date || 'now'}: ${c.summary}`);
+    out.push('');
+  }
+  if (!items.length) out.push('Nothing to list.');
+  return out.join('\n');
+}

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calendarAxis, gapSummary, layout, missingLines, percent, inRanges } from '../src/data.js';
+import { calendarAxis, gapSummary, guideItems, guideMarkdown, layout, lineSpan, missingLines, percent, inRanges, rangeText } from '../src/data.js';
 
 test('squarified layout includes every file once and preserves line area', () => {
   const files = [{ path: 'src/nested/one.py', line_count: 90 }, { path: 'src/nested/two.py', line_count: 10 }, { path: 'readme.md', line_count: 20 }];
@@ -56,4 +56,16 @@ test('small uppercase label token meets WCAG AA against panel', () => {
     assert.ok(!/#[0-9a-f]{6}\b/i.test(source));
     assert.ok(!/<x-dc|<helmet|<sc-for|<sc-if|DCLogic|renderVals|\{\{hole\}\}/.test(source));
   }
+});
+
+test('study guide orders unseen units by size and keeps file order for the whole file', () => {
+  const unit = (name, start, unseen) => ({ name, start, end: start + 4, lines: 5, unseen, unseen_ranges: unseen ? [[start, start + unseen - 1]] : [], changes: [], calls: [], raises: [], signature: '', doc: '' });
+  const guide = { path: 'a.py', unseen_lines: 6, items: [unit('seen', 1, 0), unit('small', 6, 1), unit('big', 11, 5)] };
+  assert.deepEqual(guideItems(guide, 'unseen').map(i => i.name), ['big', 'small']);
+  assert.deepEqual(guideItems(guide, 'whole').map(i => i.name), ['seen', 'small', 'big']);
+  assert.equal(lineSpan({ start: 3, end: 3 }), 'Line 3');
+  assert.equal(rangeText([[4, 4], [7, 9]]), '4, 7–9');
+  const text = guideMarkdown(guide, 'unseen');
+  assert.match(text, /## big \(lines 11–15\)/);
+  assert.doesNotMatch(text, /## seen/);
 });

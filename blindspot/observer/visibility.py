@@ -126,6 +126,14 @@ def current_source(store, path, expected_hash):
         return {key: file[key] for key in ("path", "text", "content_hash", "origin")}
 
 
+def file_stats(store, file, dwell_ms=1000):
+    """Display evidence for one current file; the caller holds the store lock."""
+    path = file["path"]
+    sources = dict(store.db.execute("SELECT DISTINCT sources.hash,sources.text FROM snapshots JOIN sources ON sources.hash=snapshots.hash WHERE path=?", (path,)))
+    observations = [{"session_id": sid, "payload": json.loads(payload)} for sid, payload in store.db.execute("SELECT session_id,payload FROM events WHERE path=? AND kind='visibility'", (path,))]
+    return derive(file["text"], [] if file["current_uncertain"] else observations, sources, dwell_ms)
+
+
 def overview(store, dwell_ms=1000):
     if type(dwell_ms) not in {int, float} or not math.isfinite(dwell_ms) or not 0 < dwell_ms <= 3600000: raise ValueError("Dwell filter must be between 0 and 3,600,000 ms")
     with store.lock:
@@ -138,10 +146,7 @@ def overview(store, dwell_ms=1000):
         output = []
         for file in files:
             path = file["path"]; uncertain = file["current_uncertain"]
-            source_rows = store.db.execute("SELECT DISTINCT sources.hash,sources.text FROM snapshots JOIN sources ON sources.hash=snapshots.hash WHERE path=?", (path,))
-            sources = dict(source_rows)
-            observations = [{"session_id": sid, "payload": json.loads(payload)} for sid, payload in store.db.execute("SELECT session_id,payload FROM events WHERE path=? AND kind='visibility'", (path,))]
-            stats = derive(file["text"], [] if uncertain else observations, sources, dwell_ms)
+            stats = file_stats(store, file, dwell_ms)
             interactions = store.db.execute("SELECT COUNT(*) FROM events WHERE path=? AND kind='interaction'", (path,)).fetchone()[0]
             reason = "current document state uncertain" if uncertain else "no matching display evidence" if not stats["reported_lines"] else "brief display only" if not stats["dwell_lines"] else "some current lines have no evidence" if stats["unknown_lines"] else "reported across all eligible lines"
             output.append({"path": path, "content_hash": digest(file["text"]), "origin": file["origin"], "current_uncertain": uncertain, "open_tab": path in tabs, "interaction_events": interactions, "review_reason": reason, **stats})

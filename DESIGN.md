@@ -50,6 +50,9 @@ The new desktop behavior has not yet been manually confirmed. We already have
 most of the infrastructure needed for a demo; further infrastructure is not the
 next milestone. Existing source, observations and quiz records remain intact.
 
+A per-file study guide (code units, unseen lines, last-changing commits) is part of file
+detail. It is deterministic and local; an optional local-model summary may come later.
+
 ## The next step
 
 Run one short dashboard demonstration: record a file, leave

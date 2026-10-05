@@ -8,7 +8,7 @@ import '@fontsource/eb-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-400.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-600.css';
-import { api, calendarAxis, directory, directories, filename, gapSummary, inRanges, label, missingLines, number, percent, states } from './data';
+import { api, calendarAxis, directory, directories, filename, gapSummary, guideItems, guideMarkdown, GUIDE_STATES, inRanges, label, lineSpan, missingLines, number, percent, rangeText, states } from './data';
 import { drawShare, Lanes, Treemap, Weekly } from './charts';
 import './style.css';
 
@@ -72,16 +72,68 @@ function Source({ text, file, start = 1, review = false }) {
     const n = start + i;
     const state = file ? file.current_uncertain ? 'uncertain' : inRanges(n, file.dwell_ranges) ? 'reported' : inRanges(n, file.brief_ranges) ? 'brief' : 'no_evidence' : null;
     const tested = file && inRanges(n, file.review.tested_ranges);
-    return <span key={n} className={`source-line ${state ? `state-${state} ${tested ? '' : 'untested'}` : ''}`} title={state ? `${label(state)} · ${tested ? 'Tested' : 'Never tested'}` : undefined}><span className="line-number">{n}</span><code>{line || ' '}</code></span>;
+    return <span key={n} data-line={n} className={`source-line ${state ? `state-${state} ${tested ? '' : 'untested'}` : ''}`} title={state ? `${label(state)} · ${tested ? 'Tested' : 'Never tested'}` : undefined}><span className="line-number">{n}</span><code>{line || ' '}</code></span>;
   })}</pre></div>;
 }
 
+const GUIDE_LABELS = { unseen: 'Never seen', partial: 'Partly seen', seen: 'Seen' };
+function jumpTo(root, line) {
+  const row = root?.querySelector(`[data-line="${line}"]`);
+  if (!row) return;
+  row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  row.classList.add('jump'); setTimeout(() => row.classList.remove('jump'), 1800);
+}
+function GuideItem({ item, jump }) {
+  const change = item.changes[0];
+  const first = item.unseen_ranges[0]?.[0] ?? item.start;
+  return <li className="guide-item">
+    <div className="guide-head"><button className="guide-name mono" onClick={() => jump(first)} title="Show these lines in the source">{item.name}</button>
+      <span className={`state-chip state-${GUIDE_STATES[item.state]}`}>{GUIDE_LABELS[item.state]}</span></div>
+    <div className="guide-lines mono">{lineSpan(item)} · {item.unseen === 0 ? `all ${item.lines} lines seen` : `${item.unseen} of ${item.lines} never on screen`}{item.unseen > 0 && item.unseen_ranges.length > 0 && <> ({rangeText(item.unseen_ranges)}{item.unseen_ranges.length === 8 ? ', …' : ''})</>}</div>
+    {item.doc && <p className="guide-doc">{item.doc}</p>}
+    {item.signature && item.kind !== 'block' && <code className="guide-signature">{item.signature}</code>}
+    {(item.calls?.length > 0 || item.raises?.length > 0 || item.branches > 0) && <div className="guide-meta mono">
+      {item.calls?.length > 0 && <span>Calls {item.calls.join(', ')}</span>}
+      {item.raises?.length > 0 && <span>Raises {item.raises.join(', ')}</span>}
+      {item.branches > 0 && <span>{item.branches} {item.branches === 1 ? 'branch' : 'branches'}</span>}</div>}
+    {change && <div className="guide-change mono dim">Last changed {change.date || 'since the last commit'}: {change.summary}{item.changes.length > 1 && ` (+${item.changes.length - 1} more)`}</div>}
+  </li>;
+}
+function StudyGuide({ guide, error, root }) {
+  const [scope, setScope] = useState('unseen'), [all, setAll] = useState(false), [copied, setCopied] = useState(false);
+  if (error) return <section className="study-guide"><h3>Study guide</h3><p className="notice">{error}</p></section>;
+  if (!guide) return <section className="study-guide"><h3>Study guide</h3><p className="dim">Loading guide.</p></section>;
+  const items = guideItems(guide, scope), shown = all ? items : items.slice(0, 8);
+  const jump = line => jumpTo(root.current, line);
+  async function copy() {
+    try { await navigator.clipboard.writeText(guideMarkdown(guide, scope)); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard unavailable */ }
+  }
+  return <section className="study-guide">
+    <div className="guide-title"><h3>Study guide</h3>
+      <div className="guide-toggle" role="group" aria-label="Guide scope">
+        <button aria-pressed={scope === 'unseen'} onClick={() => { setScope('unseen'); setAll(false); }}>Unseen code</button>
+        <button aria-pressed={scope === 'whole'} onClick={() => { setScope('whole'); setAll(false); }}>Whole file</button></div></div>
+    <p className="guide-note">Built from the code’s structure and Git history, with no AI, so nothing here is made up. On screen is not the same as understood.</p>
+    <p className="guide-summary mono">{guide.unseen_lines === 0 ? 'Every line of this file has been on screen.' : `${number(guide.unseen_lines)} lines never on screen · ${guide.overview.units_with_unseen} of ${guide.overview.units} code units`}</p>
+    {guide.overview.doc && <p className="guide-doc">{guide.overview.doc}</p>}
+    {guide.overview.imports.length > 0 && <p className="guide-meta mono dim">Uses {guide.overview.imports.join(', ')}</p>}
+    {scope === 'unseen' && guide.recent_changes.length > 0 && <div className="guide-changes"><h4>Changes you haven’t seen</h4><ul>{guide.recent_changes.slice(0, 5).map(c => <li key={`${c.commit}${c.date}${c.summary}`} className="mono"><span className="dim">{c.date || 'uncommitted'}</span> {c.summary} <span className="dim">· {c.unseen} unseen {c.unseen === 1 ? 'line' : 'lines'}</span></li>)}</ul></div>}
+    {items.length === 0 ? <p className="dim">{guide.items.length === 0 ? 'No code units found in this file.' : 'Every code unit has had all of its lines on screen.'}</p>
+      : <ol className="guide-list">{shown.map(i => <GuideItem key={`${i.name}:${i.start}`} item={i} jump={jump} />)}</ol>}
+    {items.length > 8 && <button className="guide-more" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `Show all ${items.length}`}</button>}
+    {guide.notes.map(n => <p key={n} className="guide-meta dim">{n}</p>)}
+    {items.length > 0 && <button className="guide-copy" onClick={copy}>{copied ? 'Copied' : 'Copy as Markdown'}</button>}
+  </section>;
+}
+
 function FileDetail({ file, data, close }) {
-  const ref = useRef(null), [source, setSource] = useState(null), [error, setError] = useState('');
+  const ref = useRef(null), [source, setSource] = useState(null), [error, setError] = useState(''), [guide, setGuide] = useState(null), [guideError, setGuideError] = useState('');
   useEffect(() => { ref.current.showModal(); }, []);
   useEffect(() => {
     let cancelled = false; setSource(null); setError('');
     api(`/api/dashboard/source?${new URLSearchParams({ path: file.path, hash: file.content_hash })}`).then(s => { if (!cancelled) setSource(s); }).catch(e => { if (!cancelled) setError(e.message); });
+    setGuide(null); setGuideError('');
+    api(`/api/dashboard/guide?${new URLSearchParams({ path: file.path, hash: file.content_hash })}`).then(g => { if (!cancelled) setGuide(g); }).catch(e => { if (!cancelled) setGuideError(e.message); });
     return () => { cancelled = true; };
   }, [file.path, file.content_hash, file.current_uncertain]);
   const editor = `vscode://file${encodeURI(`${data.workspace}/${file.path}`).replaceAll('#', '%23').replaceAll('?', '%3F')}`;
@@ -91,6 +143,7 @@ function FileDetail({ file, data, close }) {
     <div className="detail-meta mono dim">{number(file.line_count)} lines · {file.origin}</div><div className="detail-state"><Chip state={file.state} tested={file.review.tested} />{file.review.passing_samples > 0 && <Chip state="sample_passed" />}</div>
     <section className="record"><h3>This file</h3><ul>{file.evidence.map((e, i) => <li key={i}><span className={`evidence-dot state-${e.state}`} /><div><p className="mono">{e.text}</p></div></li>)}</ul>
       </section>
+    <StudyGuide guide={guide} error={guideError} root={ref} />
     <section className="detail-source"><h3>The source</h3>{error ? <p className="notice">{error}</p> : current ? <Source text={source.text} file={file} /> : <p className="dim">Loading file.</p>}</section>
     <div className="detail-actions"><button disabled={!file.review.available.length || !current} onClick={() => startReview(file)}>Review this file</button><a href={editor}>Open in editor</a></div>
     {!file.review.available.length && <p className="footnote">No quiz ready for this file. Choose another file in Risk.</p>}

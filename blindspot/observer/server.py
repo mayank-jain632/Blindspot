@@ -80,6 +80,8 @@ def make_server(journal: Journal, token: str, port: int = 7777, *, review_direct
                     if parsed.path == "/api/dashboard": return self.reply(200, dashboard.overview())
                     if parsed.path == "/api/dashboard/source":
                         return self.reply(200, dashboard.source(query.get("path", [""])[0], query.get("hash", [""])[0]))
+                    if parsed.path == "/api/dashboard/guide":
+                        return self.reply(200, dashboard.guide(query.get("path", [""])[0], query.get("hash", [""])[0]))
                     if parsed.path in {"/api/dashboard/review/attempt", "/api/dashboard/review/results"}:
                         return self.reply(200, dashboard.review_get(parsed.path.rsplit("/", 1)[-1], query.get("attempt_id", [""])[0]))
                     return self.reply(404, {"error": "Not found"})

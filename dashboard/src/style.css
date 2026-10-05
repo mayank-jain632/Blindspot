@@ -285,3 +285,30 @@ svg text { font: 11px var(--mono); fill: var(--text-label); }
 .answer-record .eyebrow { color: var(--text-label); }
 .answer-record.differs .eyebrow { color: var(--sun); }
 @media (max-width: 760px) { .question-panel h1 { font-size: 26px; } .review-header { flex-wrap: wrap; } }
+
+/* Study guide */
+.study-guide { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--border); }
+.guide-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.guide-toggle { margin-left: auto; display: flex; }
+.guide-toggle button { min-height: 36px; border-radius: 0; background: transparent; }
+.guide-toggle button + button { margin-left: -1px; }
+.guide-toggle button[aria-pressed='true'] { background: var(--control); border-color: var(--sun); color: var(--corona); position: relative; }
+.guide-note { color: var(--text-dim); font-size: 14px; }
+.guide-summary { color: var(--sun); font-size: 12px; margin-top: 14px; }
+.guide-doc { color: var(--text-dim); font-size: 15px; margin-top: 6px; }
+.guide-meta { font-size: 11px; color: var(--text-label); margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; overflow-wrap: anywhere; }
+.guide-changes { margin-top: 18px; padding: 14px 16px; background: var(--inset); border-left: 2px solid var(--sun); }
+.guide-changes h4 { margin: 0 0 8px; font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.guide-changes ul, .guide-list { list-style: none; margin: 0; padding: 0; }
+.guide-changes li { font-size: 11px; padding: 3px 0; overflow-wrap: anywhere; }
+.guide-list { margin-top: 16px; display: grid; gap: 10px; }
+.guide-item { background: var(--inset); border: 1px solid var(--hairline); padding: 14px 16px; }
+.guide-head { display: flex; align-items: center; gap: 10px; }
+.guide-name { padding: 0; min-height: 0; min-width: 0; background: transparent; border: none; font-size: 13px; font-weight: 600; color: var(--text); text-align: left; overflow-wrap: anywhere; }
+.guide-name:hover { color: var(--corona); }
+.guide-head .state-chip { margin-left: auto; flex-shrink: 0; }
+.guide-lines { font-size: 11px; color: var(--text-label); margin-top: 6px; overflow-wrap: anywhere; }
+.guide-signature { display: block; font: 11px var(--mono); color: var(--text-dim); margin-top: 8px; overflow-wrap: anywhere; }
+.guide-change { font-size: 11px; margin-top: 8px; overflow-wrap: anywhere; }
+.guide-more, .guide-copy { margin-top: 14px; margin-right: 8px; background: transparent; }
+.source-line.jump { outline: 1px solid var(--corona); outline-offset: -1px; box-shadow: 0 0 14px rgba(255,138,43,.5); }
