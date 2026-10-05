@@ -40,6 +40,9 @@ npm --prefix dashboard run build
   --port 7777
 ```
 
+`scripts/demo.sh` does both steps. The built dashboard (`blindspot/observer/dashboard_dist/`) is
+not committed, so after `git pull` or a branch switch you must rebuild or the old UI keeps serving.
+
 Open **http://127.0.0.1:7777**. If an older receiver is running, stop it with
 Ctrl+C in its terminal before restarting. The extension reconnects using the
 same `connection.json`; its existing F5 launch already points to this state.
