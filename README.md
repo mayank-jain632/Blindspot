@@ -26,7 +26,7 @@ python3 scripts/seed_demo.py                      # writes sandbox/demo
   --workspace sandbox/demo/project --state-dir sandbox/demo/state --port 7777
 ```
 
-Open <http://127.0.0.1:7777>. Map opens first, with the percentage of lines not seen and the underlying line counts. (Screenshots above come from this demo.) To record your own
+Open <http://127.0.0.1:7777>. Map opens first, with the percentage of lines not seen and the underlying line counts. Search for files, select directories to filter the map, or choose **Export PNG** for a share card. (Screenshots above come from this demo.) To record your own
 project, run the VS Code extension and point the receiver at it as described below.
 
 **Status: a local presentation MVP.** The VS Code extension, local receiver, SQLite storage and
@@ -115,15 +115,13 @@ in the observer state directory. No matching unanswered quiz means the Review
 action is unavailable until a quiz is imported. Passing a current eligible
 sample reduces dashboard queue priority without changing display percentages.
 
-**Study guide.** File detail includes a guide for the selected file, built only from the
-code's structure (Python AST, patterns for other languages) and `git blame`. It lists each
-function, class or section with how many of its lines were never on screen, what it calls,
-and the commit that last changed it. **Unseen code** shows only units with gaps, largest
-first; **Whole file** lists everything in order. Open it from the **Guide** button on a Risk row, or
-"Open full guide" in file detail, for a full page with an outline, expandable code, Markdown copy and print. No model is used and the code never
-leaves the machine. It describes display evidence, not understanding.
+**Study guide.** Choose **Study** in Risk or **Study unseen code** in file detail to
+open a lesson. File detail puts actions above the source, with secondary evidence
+and unseen-section links under disclosures. **Full study guide** in a lesson opens
+an outline of all code units, with expandable code and metadata. Markdown copy and
+print are under **Export guide**. The guide uses the code's structure and Git history.
 
-**Quizzes from any chat model.** On the full guide page, **Make a quiz** on a code unit gives you a
+**Quizzes from any chat model.** On the full guide page, **Copy prompt** on a code unit copies a
 prompt to paste into Claude, ChatGPT or any chat model. Paste its JSON reply back, and Blindspot
 checks the shape, the cited lines and the commit it is tied to, then opens the existing review
 screen. Quizzes are tied to committed code (commit first), cover 10 to 300 lines, and carry an
@@ -131,7 +129,7 @@ answer key written by the model and not verified, so a question that looks wrong
 after you finish, which removes that quiz. Blindspot itself makes no model call for this.
 
 **Learning.** The Learning tab lists files with unseen lines and opens a lesson
-for one code unit at a time. Switch between Code, Explanation, and Quiz; use
+for one code unit at a time. Switch between Code, Quiz, and Explain; use
 Previous/Next to move between units. Code and paste-in quizzes work without
 Ollama. Browsing lessons does not claim understanding or change VS Code display
 evidence; completed quizzes use the existing review rules.
@@ -159,9 +157,9 @@ Use the seeded sample project from **Try it in two minutes** for a disposable
 trial. It already has committed code and invented activity; its prewritten quiz
 does not count as a generated-model test.
 
-1. Open **Learning**, find `notifications.py`, and choose **Open lesson**.
+1. Open **Learning**, find `notifications.py`, and choose **Study**.
 2. Choose the `render` unit in the outline, then the **Quiz** tab.
-3. Click **Make a quiz → Copy prompt**. Paste the prompt into a fresh ChatGPT
+3. Click **Copy prompt** (or **Make another quiz → Copy prompt** when one is ready). Paste the prompt into a fresh ChatGPT
    conversation and retain the exact reply.
 4. Paste the unchanged reply into **Model reply**, then click **Create quiz**.
    Preserve any error or warning before repairing the reply.

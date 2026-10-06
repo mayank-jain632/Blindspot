@@ -483,3 +483,55 @@ input[type='search'] { min-height: 44px; max-width: 100%; padding: 10px 12px; ba
 .source-line[class*='state-'] { background-color: color-mix(in srgb, var(--fill) 10%, var(--inset)); color: var(--text); }
 .source-line[class*='state-'] .line-number { border-left: 2px solid var(--fill); }
 .state-chip.untested, .source-line.untested { background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, color-mix(in srgb, var(--text) 8%, transparent) 4px, color-mix(in srgb, var(--text) 8%, transparent) 5px); }
+
+/* Focused learning and compact history */
+.learning-files { grid-template-columns: 1fr; gap: 0; border-top: 1px solid var(--border); }
+.learning-file { position: relative; padding: 18px 0; border: none; border-bottom: 1px solid var(--hairline); background: transparent; }
+.learning-file-heading { justify-content: flex-start; align-items: center; flex-wrap: wrap; }
+.learning-file-heading .eyebrow { margin: 0; }
+.learning-file-actions { margin-top: 8px; }
+.learning-file-actions .button-link { margin: 0; }
+.learning-quiz-status { min-height: 0; }
+.unit-details { margin-top: 8px; }
+.unit-details summary { font-size: 12px; }
+.guide-export button { width: 100%; margin-top: 8px; }
+.guide-note { display: none; }
+.chart-panel { padding: 20px; }
+.chart-legend { margin-top: 12px; }
+.calibration { margin-top: 14px; font-size: 12px; }
+.calibration progress { height: 4px; margin: 8px 0; }
+.wrong-summary .button-link { margin: 8px 0 0; }
+.result-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.answer-record summary { color: var(--text); }
+.answer-record summary .eyebrow { margin-bottom: 4px; }
+.guide-meta, .guide-lines, .guide-change, .guide-outline small, .lesson-outline small, .detail-meta, .record li p, .learning-file p, .directory-row small, .coverage-labels { font-size: 12px; }
+.guide-toggle button, .guide-code-toggle, .guide-explain-button, .guide-quiz-button, .guide-explain button, .quiz-steps button, .quiz-maker > div button, .report-question button, .quiz-steps summary, .guide-name { min-height: 44px; }
+.guide-name { display: inline-flex; align-items: center; }
+.mobile-unit-select, .mobile-nav { display: none; }
+.lesson-tabs { margin-top: 20px; }
+.lesson-panel { padding-top: 16px; }
+.lesson-tabs button:last-child { margin-left: auto; color: var(--text-dim); }
+@media (max-width: 760px) {
+  nav { overflow: visible; flex-wrap: wrap; gap: 0; }
+  nav .desktop-nav { display: none; }
+  .mobile-nav { display: block; }
+  .mobile-nav summary { padding: 8px 13px; font: 12px var(--mono); min-height: 44px; display: flex; align-items: center; }
+  .mobile-nav > div { display: flex; flex-wrap: wrap; }
+  .lesson-sidebar { padding: 12px 16px; }
+  .lesson-back { margin-bottom: 4px; }
+  .lesson-sidebar .guide-toggle { margin: 12px 0; }
+  .lesson-outline { display: none; }
+  .mobile-unit-select { display: grid; padding: 0; gap: 6px; margin: 12px 0; font: 12px var(--mono); }
+  .mobile-unit-select select { width: 100%; min-width: 0; }
+  .lesson-sidebar > .button-link { margin: 4px 0; }
+  .lesson-main { padding-top: 20px; }
+}
+
+.event-stroke.visibility { stroke: var(--text-dim); }
+.event-stroke.interaction { stroke: var(--text); }
+.event-stroke.file_event { stroke: var(--text-label); }
+.lane-legend { font-size: 12px; color: var(--text-dim); }
+
+.detail-top { position: sticky; top: -24px; z-index: 3; padding: 12px 0; background: var(--panel); }
+.detail-actions { top: 44px; align-items: center; }
+.detail-actions .button-link { margin: 0; }

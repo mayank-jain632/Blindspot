@@ -10,9 +10,9 @@ Keep the project simple; quiz generation is paused.
 
 - VS Code collector, localhost receiver, SQLite storage, and React dashboard are
   implemented.
-- Dashboard: Risk landing view, file detail/source shading, existing quiz review,
+- Dashboard: Map landing view, file detail/source shading, existing quiz review,
   directory Map, Timeline, Insights, and PNG Share card.
-- Latest UI pass: pure black background; unseen-line headline; concise copy and
+- Latest UI pass: pure black background; percentage-not-seen headline; concise copy and
   plain-language states; optional empty columns/panels hidden; Timeline counts
   distinct files per week; monospace metrics; shared “How this is measured” panel.
 - The extension has connection recovery and event batching. Pause/resume has
@@ -74,3 +74,13 @@ Only this VS Code editor's recorded activity is visible. Background tabs do not
 count as on-screen evidence. Missing evidence does not prove a file was never
 viewed. Quiz accuracy compares answers with a generated key that may be wrong.
 Everything is local; no analytics or telemetry are intended.
+
+## Dashboard polish (2026-10-06)
+
+- Header combines project, recording status and refresh; session details are collapsed.
+- Map has search, directory filtering and Export PNG; mobile retains the legend and filters.
+- File detail has sticky actions, source, compact evidence and direct unseen-section lesson links.
+- Learning uses a compact file list; lessons prioritize Code and Quiz, with optional Explain.
+- Guide metadata/export and correct quiz explanations are collapsed; quiz results link back to the file.
+- Mobile uses More navigation and a section selector. Coverage colors/hatching remain; chrome glow is reduced.
+- Existing collector, storage and grading behavior remain intact. No new automatic quiz generation.

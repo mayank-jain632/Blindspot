@@ -32,7 +32,7 @@ export function Weekly({ axis, ticks }) {
   if (!axis || !axis.columns.some(w => w.files_touched > 0)) return null;
   const shown = axis.columns;
   const max = Math.max(...shown.map(w => w.files_touched || 0));
-  const step = 42, width = shown.length * step, height = 190, plotHeight = 145;
+  const step = 42, width = shown.length * step, height = shown.length <= 4 ? 135 : 190, plotHeight = height - 45;
   return <><div className="chart-legend mono"><span className="event-key visibility">Files touched</span><span>│ Quiz completed</span></div>
     <div className="weekly-plot"><svg className="weekly-chart" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Files touched per week">
       <line x1="0" x2={width} y1={plotHeight} y2={plotHeight} className="axis" />
@@ -40,7 +40,7 @@ export function Weekly({ axis, ticks }) {
         const h = (w.files_touched || 0) / max * (plotHeight - 12);
         return <g key={w.week}>
           {w.files_touched > 0 && <rect className="event-fill visibility weekly-bar" x={i * step} y={plotHeight - h} width="36" height={h}><title>{`${w.week}: ${number(w.files_touched)} files · ${number(w.event_count)} events`}</title></rect>}
-          {(i % 2 === 0 || shown.length === 1) && <text x={i * step} y="175">{w.week.slice(5)}</text>}
+          {(i % 2 === 0 || shown.length === 1) && <text x={i * step} y={height - 15}>{w.week.slice(5)}</text>}
         </g>;
       })}
       {ticks.filter(t => +new Date(t.at) >= axis.start && +new Date(t.at) < axis.end).map(t => {
@@ -64,7 +64,7 @@ export function Lanes({ files, events, ticks, onSelect, axis }) {
       <svg width={width} height="44" viewBox={`0 0 ${width} 44`} role="img" aria-label={`Recent activity for ${f.path}`}>
         <line x1="0" x2={width} y1="22" y2="22" className="axis" />
         {relevant.filter(e => e.payload.path === f.path).map(e => <line key={`${e.session_id}:${e.sequence}`} x1={(+new Date(e.observed_at) - start) / span * width}
-          x2={(+new Date(e.observed_at) - start) / span * width} y1="13" y2="31" className={`event-stroke ${e.kind}`}><title>{`${e.kind} · ${e.observed_at} · ${e.session_id}:${e.sequence}`}</title></line>)}
+          x2={(+new Date(e.observed_at) - start) / span * width} y1={e.kind === 'visibility' ? 17 : e.kind === 'interaction' ? 13 : 9} y2={e.kind === 'visibility' ? 27 : e.kind === 'interaction' ? 31 : 35} className={`event-stroke ${e.kind}`} strokeDasharray={e.kind === 'file_event' ? '2 2' : undefined}><title>{`${{ visibility: 'On screen', interaction: 'Editor interaction', file_event: 'File changed' }[e.kind]} · ${e.observed_at}`}</title></line>)}
         {ticks.filter(t => t.path === f.path).map(t => <circle key={t.attempt_id} cx={(+new Date(t.at) - start) / span * width} cy="22" r="4" className="review-dot"><title>Completed review · {t.at}</title></circle>)}
       </svg>
     </div>)}
@@ -88,9 +88,8 @@ export async function drawShare(canvas, data) {
   const gap = gapSummary(data);
   text('Not seen', 40, 155, 26, 'EB Garamond');
   ctx.save(); ctx.shadowColor = 'rgba(255,138,43,.6)'; ctx.shadowBlur = 0; text(gap.headline, 40, 275, gap.known ? 84 : 44, 'IBM Plex Mono', 'text'); ctx.restore();
-  text(gap.detail, 40, 337, 17, 'IBM Plex Mono', 'text-dim');
-  if (gap.context) text(gap.context, 40, 385, 13);
-  if (gap.percentage) text(gap.percentage, 40, 416, 14, 'IBM Plex Mono', 'text-dim');
+  text(gap.known ? `${number(gap.gap)} of ${number(data.totals.line_count)} lines not seen` : gap.detail, 40, 337, 17, 'IBM Plex Mono', 'text-dim');
+  if (gap.known) text(`${number(data.files.length)} files tracked`, 40, 385, 13);
   if (data.totals.uncertain_files > 0) text(`${number(data.totals.uncertain_files)} files unknown`, 40, 447, 14, 'IBM Plex Mono', 'text-dim');
   const root = layout(data.files, 560, 350);
   for (const n of root.leaves().filter(n => n.data.file)) {

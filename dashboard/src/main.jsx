@@ -19,10 +19,10 @@ function Chip({ state, tested = true, seen, total, uncertain = false }) {
 }
 function ChangedBadge({ file }) { return file.changed_unseen_lines > 0 ? <span className="changed-badge mono">{number(file.changed_unseen_lines)} changed {file.changed_unseen_lines === 1 ? 'line' : 'lines'} unseen</span> : null; }
 function FileName({ path }) { return <span className="file-name"><strong>{filename(path)}</strong><span>{directory(path)}</span></span>; }
-function startReview(file) { window.location.hash = `review?set_id=${encodeURIComponent(file.review.available[0].set_id)}`; }
+function startReview(file) { window.location.hash = `review?set_id=${encodeURIComponent(file.review.available[0].set_id)}&path=${encodeURIComponent(file.path)}`; }
 
 function Risk({ data, inspect }) {
-  const [filter, setFilter] = useState('flagged'), [dir, setDir] = useState('all');
+  const [filter, setFilter] = useState(() => new URLSearchParams(window.location.hash.split('?')[1]).get('filter') === 'wrong' ? 'wrong' : 'flagged'), [dir, setDir] = useState('all');
   const files = data.files.filter(f => (filter === 'all' || filter === 'wrong' && f.review.confidently_wrong || filter === 'flagged' && f.flagged) && (dir === 'all' || directory(f.path) === dir));
   const showMissing = files.some(f => missingLines(f) !== null);
   const showCommits = files.some(f => Number.isFinite(f.commits_90d));
@@ -57,7 +57,7 @@ function MapView({ data, inspect }) {
     {gap.known && <p className="mono dim">{number(data.files.length)} files tracked</p>}
     {data.totals.uncertain_files > 0 && <p className="mono dim">{number(data.totals.uncertain_files)} files unknown · reconnect the extension</p>}</div>
     {data.files.length > 0 && <details className="rollup map-directories" open={window.innerWidth > 760}><summary>Directories · gaps first</summary><button className="directory-reset" aria-pressed={dir === 'all'} onClick={() => setDir('all')}>All directories</button>{directories(data.files).map(d => <button className="directory-row" key={d.name} aria-pressed={dir === d.name} onClick={() => setDir(d.name)} title="Filter this directory">
-      <span>{d.name}</span><span>{data.has_observations && d.lines ? `${percent(d.lines - d.reported, d.lines)}% not seen` : 'Unknown'}</span>{data.has_observations && d.lines > 0 && <progress style={coverageStyle(d.reported, d.lines)} max={d.lines} value={d.reported} />}<small>{number(d.files)} files · {number(d.lines)} lines{d.uncertain ? ` · ${d.uncertain} unknown` : ''}</small>
+      <span>{d.name}</span><span>{data.has_observations && d.lines ? `${percent(d.lines - d.reported, d.lines)}% not seen` : 'Unknown'}</span>{data.has_observations && d.lines > 0 && <progress style={coverageStyle(d.reported, d.lines)} title="Lines not seen in this directory" max={d.lines} value={d.lines - d.reported} />}<small>{number(d.files)} files · {number(d.lines)} lines{d.uncertain ? ` · ${d.uncertain} unknown` : ''}</small>
     </button>)}</details>}
     <details className="rollup coverage-legend" open={window.innerWidth > 760}><summary>Coverage legend</summary><div className="coverage-scale" /><div className="coverage-labels"><span>0%</span><span>Below 100%</span></div><div className="legend"><div><span className="swatch" style={coverageStyle(1, 1)} /><span>100% seen</span></div><div><span className="swatch state-uncertain" /><span>Unknown</span></div></div><p className="mono dim">Hatched = never tested</p></details></aside>
     <section className="map-main"><div className="map-toolbar mono"><label className="map-search">Find a file<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="File name or path" /></label><span>Size: lines</span><a className="button-link" href="#share">Export PNG</a></div>
@@ -102,11 +102,13 @@ function GuideItem({ item, jump, id, code }) {
     <div className="guide-lines mono">{lineSpan(item)} · {item.unseen === 0 ? `all ${item.lines} lines seen` : `${item.unseen} of ${item.lines} never on screen`}{item.unseen > 0 && item.unseen_ranges.length > 0 && <> ({rangeText(item.unseen_ranges)}{item.unseen_ranges.length === 8 ? ', …' : ''})</>}</div>
     {item.doc && <p className="guide-doc">{item.doc}</p>}
     {item.signature && item.kind !== 'block' && <code className="guide-signature">{item.signature}</code>}
+    <details className="unit-details"><summary>Details</summary>
     {(item.calls?.length > 0 || item.raises?.length > 0 || item.branches > 0) && <div className="guide-meta mono">
       {item.calls?.length > 0 && <span>Calls {item.calls.join(', ')}</span>}
       {item.raises?.length > 0 && <span>Raises {item.raises.join(', ')}</span>}
       {item.branches > 0 && <span>{item.branches} {item.branches === 1 ? 'branch' : 'branches'}</span>}</div>}
     {change && <div className="guide-change mono dim">Last changed {change.date || 'since the last commit'}: {change.summary}{item.changes.length > 1 && ` (+${item.changes.length - 1} more)`}</div>}
+    </details>
     {code}
   </li>;
 }
@@ -136,7 +138,7 @@ function FileDetail({ file, data, close }) {
     <div className="detail-top"><h2 id="detail-title" className="mono">{file.path}</h2><button onClick={close} aria-label="Close file detail">×</button></div>
     <div className="detail-meta mono dim">{number(file.line_count)} lines</div><div className="detail-state"><Chip state={file.state} tested={file.review.tested} seen={file.reported_lines} total={file.line_count} uncertain={file.current_uncertain} />{file.review.passing_samples > 0 && <Chip state="sample_passed" />}</div>
     <div className="detail-actions">
-      {!file.current_uncertain && <a className="button-link" onClick={close} href={`#learn?path=${encodeURIComponent(file.path)}`}>Study unseen code</a>}
+      {!file.current_uncertain && <a className="button-link" onClick={close} href={`#learn?path=${encodeURIComponent(file.path)}`}>{missingLines(file) === 0 ? 'Study file' : 'Study unseen code'}</a>}
       <a href={editor}>Open in VS Code</a>
       {file.review.available.length > 0 && <button disabled={!current} onClick={() => startReview(file)}>Take quiz</button>}
       {file.changed_unseen_lines > 0 && <button disabled={!current} onClick={() => jumpTo(ref.current, file.changed_unseen_ranges[0][0])}>Show changed lines</button>}
@@ -158,7 +160,7 @@ function Timeline({ data, inspect }) {
   const hasLanes = data.timeline.some(e => within(e.observed_at) && data.files.some(f => f.path === e.payload.path) && ['visibility', 'interaction', 'file_event'].includes(e.kind)) || data.review.ticks.some(t => within(t.at) && data.files.some(f => f.path === t.path));
   return <main className="standard-page"><div className="page-heading"><span className="eyebrow">Activity</span><h1>Activity over time</h1><p>What the extension observed, by week.</p></div>
     {hasWeekly ? <section className="chart-panel"><h2>Files touched per week</h2><Weekly axis={axis} ticks={data.review.ticks} /></section> : <Empty title="No activity yet">Start recording in VS Code to see files touched per week.</Empty>}
-    {hasLanes && <section className="chart-panel"><h2>Activity by file</h2><p className="mono">The last {number(data.timeline.length)} observed events, grouped by file.</p><Lanes files={data.files} events={data.timeline} ticks={data.review.ticks} onSelect={inspect} axis={axis} /></section>}
+    {hasLanes && <section className="chart-panel"><h2>Activity by file</h2><p className="mono">The last {number(data.timeline.length)} observed events, grouped by file.</p><Lanes files={data.files} events={data.timeline} ticks={data.review.ticks} onSelect={inspect} axis={axis} /><p className="lane-legend mono">Short mark: on screen · Tall mark: editor interaction · Dashed mark: file changed · Dot: quiz completed</p></section>}
   </main>;
 }
 
@@ -166,9 +168,9 @@ function Insights({ data }) {
   const review = data.review;
   const calibration = Object.entries(review.calibration).filter(([, c]) => c.answers > 0);
   return <main className="standard-page"><div className="page-heading"><span className="eyebrow">Quizzes</span><h1>What the quizzes found</h1><p>Quiz accuracy is measured against a generated answer key.</p></div>
-    <section className="wrong-summary">{review.completed_attempts > 0 && <div className={`mono big-stat ${review.confidently_wrong_files ? 'flagged-stat' : ''}`}>{number(review.confidently_wrong_files)}</div>}<div><h2>Confidently wrong</h2>{review.completed_attempts ? <p>Files where you answered confidently and were wrong.</p> : <><p>No quizzes taken yet.</p><a className="button-link" href="#risk">Review a file</a></>}</div></section>
+    <section className="wrong-summary">{review.completed_attempts > 0 && <div className={`mono big-stat ${review.confidently_wrong_files ? 'flagged-stat' : ''}`}>{number(review.confidently_wrong_files)}</div>}<div><h2>Confidently wrong</h2>{review.completed_attempts ? <><p>Files where you answered confidently and were wrong.</p>{review.confidently_wrong_files > 0 && <a className="button-link" href="#risk?filter=wrong">View affected files</a>}</> : <><p>No quizzes taken yet.</p><a className="button-link" href="#learn">Study a file</a></>}</div></section>
     {calibration.length > 0 && <section className="chart-panel calibration-panel"><h2>Confidence versus accuracy</h2><p>How often you were right, grouped by how sure you were.</p>
-      {calibration.map(([confidence, c]) => <div className="calibration mono" key={confidence}><div><span>{confidence}</span><span>{number(c.correct)} / {number(c.answers)} answers correct</span></div><progress max={c.answers} value={c.correct} /><span>{percent(c.correct, c.answers)}% correct</span></div>)}
+      {calibration.map(([confidence, c]) => <div className="calibration mono" key={confidence}><div><span>{confidence[0].toUpperCase() + confidence.slice(1)}</span><span>{number(c.correct)}/{number(c.answers)} correct · {percent(c.correct, c.answers)}%</span></div><progress max={c.answers} value={c.correct} /></div>)}
     </section>}
   </main>;
 }
@@ -191,7 +193,7 @@ function Review({ params }) {
         const started = await api('/api/dashboard/review/start', { set_id: params.get('set_id') });
         id = started.attempt_id;
         if (cancelled) return;
-        window.history.replaceState(null, '', `#review?attempt_id=${encodeURIComponent(id)}`);
+        window.history.replaceState(null, '', `#review?attempt_id=${encodeURIComponent(id)}${params.get('path') ? `&path=${encodeURIComponent(params.get('path'))}` : ''}`);
         if (started.completed) { setResult(await api(`/api/dashboard/review/results?attempt_id=${encodeURIComponent(id)}`)); return; }
       }
       try { const view = await api(`/api/dashboard/review/attempt?attempt_id=${encodeURIComponent(id)}`); if (!cancelled) setAttempt(view); }
@@ -219,8 +221,9 @@ function Review({ params }) {
   // This screen never mounts the dashboard shell, state chips, queue or scores.
   return <div className="review-screen"><header className="review-header"><a href="#risk">← Exit review</a>{attempt && <span className="mono">{attempt.target.path}</span>}{question && <div className="review-progress mono"><span>Question {index + 1} of {attempt.questions.length}</span><span className="progress-dots" aria-hidden="true">{attempt.questions.map((q, i) => <i key={q.id} className={i === index ? 'current' : q.submitted ? 'submitted' : ''} />)}</span></div>}</header>
     {error && <p role="alert" className="notice">{error}</p>}
-    {result ? <main className="review-results"><span className="eyebrow">Completed sample</span><h1>Quiz results</h1><p className="guide-meta dim">The answer key was written by a model and is not verified.</p><p className="mono">{result.questions.filter(q => q.correct).length} / {result.questions.length} answers correct</p><p>{result.current_sample_pass ? 'Quiz passed. Return to Risk to see the updated rank.' : 'Review the explanations, then choose another file.'}</p>
-      {result.questions.map((q, i) => <section key={q.question_id} className={`answer-record ${q.correct ? 'matches' : 'differs'}`}><span className="eyebrow">Question {i + 1} · {q.confidence} · {q.correct ? 'Matches key' : 'Does not match key'}</span><h2>{q.prompt}</h2><p>Your answer: {q.options[q.chosen_index]}</p><p>Answer key: {q.options[q.correct_index]}</p><p>{q.explanation}</p><p className="mono dim">{q.rationale.path}:{q.rationale.start_line}–{q.rationale.end_line}</p><p>{q.rationale.reason}</p><ReportQuestion attemptId={result.attempt_id} questionId={q.question_id} /></section>)}<a className="button-link" href="#risk">Return to review queue</a></main>
+    {result ? <main className="review-results"><span className="eyebrow">Completed sample</span><h1>Quiz results</h1><p className="guide-meta dim">Generated answer key · unverified</p><p className="mono">{result.questions.filter(q => q.correct).length} / {result.questions.length} answers correct</p><p>{result.current_sample_pass ? 'Quiz passed. Return to Risk to see the updated rank.' : 'Review the explanations, then choose another file.'}</p>
+      <div className="result-actions">{(attempt?.target.path || params.get('path')) && <><a className="button-link" href={`#map?path=${encodeURIComponent(attempt?.target.path || params.get('path'))}`}>Back to file</a><a className="button-link" href={`#learn?path=${encodeURIComponent(attempt?.target.path || params.get('path'))}&line=${attempt?.target.start_line || ''}`}>Study this section</a></>}</div>
+      {result.questions.map((q, i) => ({ q, i })).sort((a, b) => Number(a.q.correct) - Number(b.q.correct)).map(({ q, i }) => <details open={!q.correct} key={q.question_id} className={`answer-record ${q.correct ? 'matches' : 'differs'}`}><summary><span className="eyebrow">Question {i + 1} · {q.confidence} · {q.correct ? 'Correct' : 'Incorrect'}</span><h2>{q.prompt}</h2></summary><p>Your answer: {q.options[q.chosen_index]}</p><p>Answer key: {q.options[q.correct_index]}</p><p>{q.explanation}</p><p className="mono dim">{q.rationale.path}:{q.rationale.start_line}–{q.rationale.end_line}</p><p>{q.rationale.reason}</p><ReportQuestion attemptId={result.attempt_id} questionId={q.question_id} /></details>)}<a className="button-link" href="#risk">Return to review queue</a></main>
       : attempt ? <main className="review-layout"><section className="review-code"><div className="source-caption mono">{attempt.target.path} · lines {attempt.target.start_line}–{attempt.target.end_line}</div><Source text={attempt.target.code} start={attempt.target.start_line} review />{attempt.context.map(c => <details key={`${c.path}:${c.start_line}`}><summary className="mono">Context · {c.path}:{c.start_line}–{c.end_line}</summary><Source text={c.code} start={c.start_line} review /></details>)}</section>
         <section className="question-panel">{question ? <><span className="eyebrow">Question</span><h1>{question.prompt}</h1><div className="options">{question.options.map((option, i) => <button key={i} aria-pressed={chosen === i} onClick={() => setChosen(i)} disabled={busy}><span className="option-letter">{String.fromCharCode(65 + i)}</span><span>{option}</span></button>)}</div><div className="confidence"><span className="eyebrow">How sure are you</span><div>{['guessed', 'shaky', 'solid'].map(c => <button key={c} disabled={chosen === null || busy} onClick={() => submit(c)}>{c[0].toUpperCase() + c.slice(1)}</button>)}</div><p>Choose your confidence to submit the answer.</p></div></> : <><h1>Answers recorded</h1><button disabled={busy} onClick={finish}>Finish review</button></>}</section></main> : !error && <Empty title="Loading review">Only source and questions are shown while answering.</Empty>}
   </div>;
@@ -231,7 +234,7 @@ function ExplainBox({ label, note, run }) {
   if (note.loading) return <p className="guide-explain" role="status">Thinking. The first answer can take a while if the model has to load.</p>;
   if (note.error) return <div className="guide-explain"><p className="notice" role="alert">{note.error}</p><button onClick={() => run(false)}>Try again</button></div>;
   return <div className="guide-explain">
-    <span className="eyebrow">Generated by {note.model} on this machine{note.cached ? ' (saved)' : ''}. Unverified, may be wrong.</span>
+    <span className="eyebrow">Generated · unverified · {note.model}{note.cached ? ' · saved' : ''}</span>
     <p className="guide-explain-text">{note.text}</p>
     <button onClick={() => run(true)}>Regenerate</button></div>;
 }
@@ -240,10 +243,10 @@ function QuizBox({ file, item }) {
   const [phase, setPhase] = useState('idle'), [made, setMade] = useState(null), [reply, setReply] = useState(''), [error, setError] = useState(''), [done, setDone] = useState(null), [copied, setCopied] = useState(false);
   const offer = quizForUnit(file, item);
   const request = { path: file.path, hash: file.content_hash, start: item.start, end: item.end };
-  const start = id => { window.location.hash = `review?set_id=${encodeURIComponent(id)}`; };
-  async function open() {
+  const start = id => { window.location.hash = `review?set_id=${encodeURIComponent(id)}&path=${encodeURIComponent(file.path)}`; };
+  async function open(copyPrompt = false) {
     setPhase('loading'); setError('');
-    try { setMade(await explainApi('/api/dashboard/quiz/prompt', request)); setPhase('prompt'); } catch (e) { setError(e.message); setPhase('idle'); }
+    try { const made = await explainApi('/api/dashboard/quiz/prompt', request); setMade(made); setPhase('prompt'); if (copyPrompt) { try { await navigator.clipboard.writeText(made.prompt); setCopied(true); } catch { setError('Copy was blocked. Open “Show prompt” and copy it by hand.'); } } } catch (e) { setError(e.message); setPhase('idle'); }
   }
   async function copy() {
     try { await navigator.clipboard.writeText(made.prompt); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { setError('Copy was blocked. Open “Show prompt” and copy it by hand.'); }
@@ -258,18 +261,17 @@ function QuizBox({ file, item }) {
     <button className="guide-explain-button" onClick={() => start(done.set_id)}>Start quiz</button></div>;
   if (phase === 'idle' || phase === 'loading') return <>
     {offer && <button className="guide-explain-button" onClick={() => start(offer.set_id)}>Take quiz · {offer.question_count} questions</button>}
-    <button className="guide-quiz-button" disabled={phase === 'loading'} onClick={open}>{phase === 'loading' ? 'Preparing' : offer ? 'Make another quiz' : 'Make a quiz'}</button>
+    <button className="guide-quiz-button" disabled={phase === 'loading'} onClick={() => open(!offer)}>{phase === 'loading' ? 'Preparing' : offer ? 'Make another quiz' : 'Copy prompt'}</button>
     {error && <p className="notice" role="alert">{error}</p>}</>;
   return <div className="quiz-maker">
     <span className="eyebrow">Quiz for lines {made.start}–{made.end} · {made.question_count} questions</span>
     {made.note && <p className="guide-meta dim">{made.note}</p>}
     <ol className="quiz-steps">
-      <li>Copy the prompt. <button onClick={copy}>{copied ? 'Copied' : 'Copy prompt'}</button> <details><summary>Show prompt</summary><textarea readOnly value={made.prompt} rows={8} aria-label="Prompt" /></details></li>
-      <li>Paste it into Claude, ChatGPT or any chat model.</li>
+      <li><button onClick={copy}>{copied ? 'Copied' : 'Copy prompt'}</button><span className="quiz-instruction"> Paste into your chat model.</span> <details><summary>Show prompt</summary><textarea readOnly value={made.prompt} rows={8} aria-label="Prompt" /></details></li>
       <li>Paste the model’s reply here.<textarea value={reply} onChange={e => setReply(e.target.value)} rows={6} placeholder="Paste the reply here" aria-label="Model reply" /></li></ol>
     {error && <p className="notice" role="alert">{error}</p>}
     <div><button className="guide-explain-button" disabled={!reply.trim() || phase === 'creating'} onClick={create}>{phase === 'creating' ? 'Checking' : 'Create quiz'}</button><button onClick={() => { setPhase('idle'); setError(''); }}>Cancel</button></div>
-    <p className="guide-meta dim">Nothing is sent anywhere by Blindspot. The answer key comes from the model you paste from and is not verified.</p></div>;
+    <p className="guide-meta dim">Generated answer key · unverified</p></div>;
 }
 
 function ReportQuestion({ attemptId, questionId }) {
@@ -292,33 +294,27 @@ function Learning({ data }) {
   const first = gaps[0];
   const lesson = file => `#learn?path=${encodeURIComponent(file.path)}`;
   return <main className="standard-page learning-page">
-    <div className="page-heading"><span className="eyebrow">Learning</span><h1>Code to revisit</h1><p>Choose a file, inspect its unseen code, then check it with a quiz.</p></div>
-    {first && <section className="learning-start" aria-labelledby="learning-start-title">
-      <div><span className="eyebrow">Start here · first in the review queue</span><h2 id="learning-start-title" className="mono">{first.path}</h2><p className="mono dim">{number(missingLines(first))} lines never on screen</p></div>
-      <a className="button-link learning-primary" href={lesson(first)}>Open lesson →</a>
-    </section>}
-    <div className="learning-method"><div><span className="eyebrow">Code</span><p>Work through one function or section at a time.</p></div><div><span className="eyebrow">Explanation</span><p>Ask a local model about that section.</p></div><div><span className="eyebrow">Quiz</span><p>Use an existing quiz or create one with a pasted model reply.</p></div></div>
+    <div className="page-heading"><span className="eyebrow">Learning</span><h1>Code to revisit</h1><p>Choose a file to study its unseen sections.</p></div>
     <div className="filters mono"><button aria-pressed={scope === 'gaps'} onClick={() => setScope('gaps')}>Files with gaps</button><button aria-pressed={scope === 'all'} onClick={() => setScope('all')}>All files</button><span className="dim">{number(files.length)} files</span></div>
     {!data.files.length ? <Empty title="No files to study">Open a Git project and start recording in VS Code.</Empty> : !files.length && <Empty title={known.length ? 'No gaps recorded' : 'File status unknown'}>{known.length ? 'Choose All files to revisit a section or take a quiz.' : 'Reconnect the extension and refresh.'}</Empty>}
-    <div className="learning-files">{files.map(file => <article className="learning-file" key={file.path}>
-      <div className="learning-file-heading"><h2 className="mono">{file.path}</h2><Chip state={file.state} tested={file.review.tested} seen={file.reported_lines} total={file.line_count} /></div>
-      <p className="mono dim">{number(file.reported_lines)} of {number(file.line_count)} lines seen</p>
+    <div className="learning-files">{files.map(file => <article className={`learning-file ${scope === 'gaps' && file === first ? 'recommended-file' : ''}`} key={file.path}>
+      <div className="learning-file-heading">{scope === 'gaps' && file === first && <span className="eyebrow">Start here</span>}<h2 className="mono">{file.path}</h2><Chip state={file.state} tested={file.review.tested} seen={file.reported_lines} total={file.line_count} /></div>
+      <p className="mono dim">{number(missingLines(file))} unseen lines</p>
       <ChangedBadge file={file} />
-      <progress style={coverageStyle(file.reported_lines, file.line_count)} aria-label={`Lines seen in ${file.path}`} max={Math.max(1, file.line_count)} value={file.reported_lines} />
-      <p className="mono learning-quiz-status">{file.review.confidently_wrong ? 'Confidently wrong answer to revisit' : file.review.passing_samples ? `${number(file.review.passing_samples)} passing quiz samples` : file.review.available.length ? `${number(file.review.available.length)} quizzes ready` : file.review.tested ? 'Quiz completed' : 'Never tested'}</p>
-      <div className="learning-file-actions"><a className="button-link" href={lesson(file)}>Open lesson</a><a href={`#guide?path=${encodeURIComponent(file.path)}`}>Full guide</a></div>
+      {(file.review.confidently_wrong || file.review.stale_results || file.review.available.length > 0) && <p className="mono learning-quiz-status">{file.review.confidently_wrong ? 'Confidently wrong answer to revisit' : file.review.stale_results ? 'Changed since quiz' : `${number(file.review.available.length)} quizzes ready`}</p>}
+      <div className="learning-file-actions"><a className="button-link" href={lesson(file)}>Study</a></div>
     </article>)}</div>
     {known.length < data.files.length && <p className="mono dim">{number(data.files.length - known.length)} files unknown · reconnect the extension</p>}
   </main>;
 }
 
 function LearningLesson({ file, guide, lines, local, chosen, pick, notes, explain, editor }) {
-  const [scope, setScope] = useState('unseen'), [selected, setSelected] = useState(Number(new URLSearchParams(window.location.hash.split('?')[1]).get('line')) || null), [tab, setTab] = useState('code');
+  const [scope, setScope] = useState(missingLines(file) === 0 ? 'whole' : 'unseen'), [selected, setSelected] = useState(Number(new URLSearchParams(window.location.hash.split('?')[1]).get('line')) || null), [tab, setTab] = useState('code');
   const items = guideItems(guide, scope);
   const index = Math.max(0, items.findIndex(i => i.start === selected));
   const item = items[index];
   function choose(unit) { setSelected(unit.start); setTab('code'); }
-  const tabs = [['code', 'Code'], ['explanation', 'Explanation'], ['quiz', 'Quiz']];
+  const tabs = [['code', 'Code'], ['quiz', 'Quiz'], ['explanation', 'Explain']];
   function navigateTabs(event) {
     const current = tabs.findIndex(([id]) => id === tab);
     const target = event.key === 'ArrowRight' ? (current + 1) % tabs.length : event.key === 'ArrowLeft' ? (current + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : null;
@@ -331,17 +327,18 @@ function LearningLesson({ file, guide, lines, local, chosen, pick, notes, explai
       <a className="lesson-back" href="#learn">← Learning</a>
       <span className="eyebrow">Study this file</span><h1 className="mono">{file.path}</h1>
       <div className="guide-toggle" role="group" aria-label="Lesson scope"><button aria-pressed={scope === 'unseen'} onClick={() => { setScope('unseen'); setSelected(null); setTab('code'); }}>Unseen code</button><button aria-pressed={scope === 'whole'} onClick={() => { setScope('whole'); setSelected(null); setTab('code'); }}>Whole file</button></div>
+      <label className="mobile-unit-select select-label">Section<select aria-label="Section" value={item?.start || ''} onChange={e => choose(items.find(unit => unit.start === Number(e.target.value)))}>{items.map(unit => <option key={unit.start} value={unit.start}>{unit.name} · {unit.unseen} unseen</option>)}</select></label>
       <ol className="lesson-outline">{items.map(unit => <li key={unit.start}><button aria-current={unit === item ? 'step' : undefined} onClick={() => choose(unit)}><span className="mono">{unit.name}</span><small className="mono">{lineSpan(unit)} · {number(unit.unseen)} unseen</small></button></li>)}</ol>
       <a className="button-link" href={`#guide?path=${encodeURIComponent(file.path)}`}>Full study guide</a>
     </aside>
     <section className="lesson-main">
       {item ? <>
-        <div className="lesson-heading"><div><span className="eyebrow">Code unit</span><h2 className="mono">{item.name}</h2><p className="mono dim">{lineSpan(item)} · {number(item.unseen)} lines never on screen</p></div><span className="mono dim">Unit {index + 1} of {items.length}</span></div>
+        <div className="lesson-heading"><div><h2 className="mono">{item.name}</h2><p className="mono dim">{lineSpan(item)} · {number(item.unseen)} lines never on screen</p></div><span className="mono dim">Unit {index + 1} of {items.length}</span></div>
         <div className="lesson-tabs" role="tablist" aria-label="Learning activities" onKeyDown={navigateTabs}>{tabs.map(([id, text]) => <button key={id} id={`lesson-tab-${id}`} role="tab" aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} aria-controls="lesson-panel" onClick={() => setTab(id)}>{text}</button>)}</div>
         <div id="lesson-panel" className="lesson-panel" role="tabpanel" aria-labelledby={`lesson-tab-${tab}`}>
-          {tab === 'code' && <><h3>Inspect this section</h3>{item.doc && <p className="dim">{item.doc}</p>}{lines ? <Source text={lines.slice(item.start - 1, end).join('\n')} file={file} start={item.start} /> : <p className="dim">Loading code.</p>}{end < item.end && <p className="mono dim">Showing the first {CODE_CAP} lines.</p>}<a className="button-link" href={editor}>Open in VS Code</a></>}
-          {tab === 'explanation' && <><h3>Explain this section</h3><p className="dim">A local model can explain the code and focus on the unseen lines.</p>{!local ? <p role="status">Checking for Ollama.</p> : local.available ? <><label className="select-label lesson-model">Model<select aria-label="Local model" value={chosen} onChange={e => pick(e.target.value)}>{local.models.map(model => <option key={model}>{model}</option>)}</select></label><ExplainBox label="Explain this unit" note={notes[`${item.start}-${item.end}`]} run={regenerate => explain(item, regenerate)} /></> : <><p className="notice">{local.error}</p><button onClick={() => setTab('code')}>Inspect the code</button></>}</>}
-          <div hidden={tab !== 'quiz'}><h3>Check this section</h3><p className="dim">Take a quiz for this passage, or copy a prompt and paste back a model’s reply.</p><QuizBox key={`${file.content_hash}:${item.start}`} file={file} item={item} /></div>
+          {tab === 'code' && <>{item.doc && <p className="dim">{item.doc}</p>}{lines ? <Source text={lines.slice(item.start - 1, end).join('\n')} file={file} start={item.start} /> : <p className="dim">Loading code.</p>}{end < item.end && <p className="mono dim">Showing the first {CODE_CAP} lines.</p>}<a className="button-link" href={editor}>Open in VS Code</a></>}
+          {tab === 'explanation' && <>{!local ? <p role="status">Checking for Ollama.</p> : local.available ? <><label className="select-label lesson-model">Model<select aria-label="Local model" value={chosen} onChange={e => pick(e.target.value)}>{local.models.map(model => <option key={model}>{model}</option>)}</select></label><ExplainBox label="Explain this unit" note={notes[`${item.start}-${item.end}`]} run={regenerate => explain(item, regenerate)} /></> : <><p className="dim">Ollama is not available. Code and quizzes work without it.</p><button onClick={() => setTab('code')}>Back to code</button></>}</>}
+          <div hidden={tab !== 'quiz'}><QuizBox key={`${file.content_hash}:${item.start}`} file={file} item={item} /></div>
         </div>
         <div className="lesson-navigation"><button disabled={index === 0} onClick={() => choose(items[index - 1])}>← Previous unit</button><button disabled={index === items.length - 1} onClick={() => choose(items[index + 1])}>Next unit →</button></div>
       </> : <Empty title={guide.items.length ? 'No unseen code units' : 'No code units found'}>{guide.items.length ? 'Choose Whole file to revisit a section.' : 'Open the file in VS Code.'}</Empty>}
@@ -420,36 +417,35 @@ function GuideBody({ file, data, learning }) {
         {!local ? <p className="dim">Checking for Ollama.</p> : local.available
           ? <><label className="select-label">Model<select value={chosen} onChange={e => pick(e.target.value)} aria-label="Local model">{local.models.map(m => <option key={m}>{m}</option>)}</select></label>
               <p className="dim">Optional explanations run on this machine through Ollama. Only the selected code unit is sent.</p></>
-          : <p className="dim">{local.error} The guide works without it.</p>}
+          : <p className="dim">Ollama is not available. The guide works without it.</p>}
       </div>
       <div className="rollup guide-actions">
-        <button onClick={copy} disabled={items.length === 0}>{copied ? 'Copied' : 'Copy as Markdown'}</button>
-        <button onClick={() => window.print()}>Print</button>
-        <a className="button-link" href={editor}>Open in editor</a>
+        <details className="guide-export"><summary>Export guide</summary><button onClick={copy} disabled={items.length === 0}>{copied ? 'Copied' : 'Copy as Markdown'}</button><button onClick={() => window.print()}>Print</button></details>
+        <a className="button-link" href={editor}>Open in VS Code</a>
         <a className="button-link" href="#risk">Back to Risk</a>
       </div>
     </aside>
     <div className="guide-main">
-      <p className="guide-note">Built from the code’s structure and Git history, with no AI. Anything marked Generated comes from a local model and may be wrong. On screen is not the same as understood.</p>
+
       {guide.overview.doc && <p className="guide-doc">{guide.overview.doc}</p>}
       {guide.overview.imports.length > 0 && <p className="guide-meta mono dim">Uses {guide.overview.imports.join(', ')}</p>}
       {local?.available && <ExplainBox label="Summarize this file" note={notes.file} run={regenerate => explain(null, regenerate)} />}
       {scope === 'unseen' && guide.recent_changes.length > 0 && <div className="guide-changes"><h2>Changes you haven’t seen</h2><ul>{guide.recent_changes.map(c => <li key={`${c.commit}${c.date}${c.summary}`} className="mono"><span className="dim">{c.date || 'uncommitted'}</span> {c.summary} <span className="dim">· {c.unseen} unseen {c.unseen === 1 ? 'line' : 'lines'}</span></li>)}</ul></div>}
       <ol className="guide-list">{items.map(i => <GuideItem key={key(i)} id={key(i)} item={i} code={<><QuizBox file={file} item={i} />{local?.available && <ExplainBox label="Explain" note={notes[`${i.start}-${i.end}`]} run={regenerate => explain(i, regenerate)} />}{codeFor(i)}</>} />)}</ol>
-      {guide.notes.map(n => <p key={n} className="guide-meta dim">{n}</p>)}
+      {guide.notes.length > 0 && <details><summary>Guide details</summary>{guide.notes.map(n => <p key={n} className="guide-meta dim">{n}</p>)}</details>}
     </div>
   </main>;
 }
 
 function DashboardApp({ page, query }) {
-  const [data, setData] = useState(null), [error, setError] = useState(''), [selected, setSelected] = useState(null), [busy, setBusy] = useState(false);
+  const [data, setData] = useState(null), [error, setError] = useState(''), [selected, setSelected] = useState(() => page === 'map' ? new URLSearchParams(query).get('path') : null), [busy, setBusy] = useState(false);
   async function refresh() {
     setBusy(true); try { const next = await api('/api/dashboard'); setData(next); setError(''); } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
   useEffect(() => { refresh(); const timer = setInterval(() => { if (!document.hidden) refresh(); }, 10000); return () => clearInterval(timer); }, []);
   const file = data?.files.find(f => f.path === selected);
   const inspect = f => setSelected(f.path);
-  return <><header className="app-header"><a href="#map" className="brand"><span className="brand-mark" />blindspot</a><nav aria-label="Dashboard views">{[['map', 'Map'], ['risk', 'Risk'], ['learn', 'Learning'], ['timeline', 'Timeline'], ['insights', 'Insights']].map(([id, name]) => <a key={id} href={`#${id}`} aria-current={page === id ? 'page' : undefined}>{name}</a>)}</nav>
+  return <><header className="app-header"><a href="#map" className="brand"><span className="brand-mark" />blindspot</a><nav aria-label="Dashboard views">{[['map', 'Map'], ['risk', 'Risk'], ['learn', 'Learning'], ['timeline', 'Timeline'], ['insights', 'Insights']].map(([id, name]) => <a className={['timeline', 'insights'].includes(id) ? 'desktop-nav' : undefined} key={id} href={`#${id}`} aria-current={page === id ? 'page' : undefined}>{name}</a>)}<details className="mobile-nav"><summary>More</summary><div>{[['timeline', 'Timeline'], ['insights', 'Insights']].map(([id, name]) => <a key={id} href={`#${id}`} aria-current={page === id ? 'page' : undefined}>{name}</a>)}</div></details></nav>
     <div className="header-context mono">{data && <>
       <span className="project-context">{data.workspace.split('/').at(-1)} · {data.git.branch || 'Git unavailable'}</span>
       <details className="connection-details"><summary>{data.health.sessions.some(s => s.connection_state === 'connected' && s.status === 'recording') ? 'Recording' : 'Not recording'}</summary><div>{number(data.health.sessions.length)} sessions<br />Updated {new Date(data.generated_at).toLocaleTimeString()}<br />Local only</div></details>
