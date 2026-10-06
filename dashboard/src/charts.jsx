@@ -87,8 +87,8 @@ export async function drawShare(canvas, data) {
   text('blindspot', 56, 48, 28, 'Cormorant Garamond'); text(data.workspace.split('/').at(-1), 760, 48, 14, 'IBM Plex Mono', 'text-dim');
   ctx.strokeStyle = color('border'); ctx.beginPath(); ctx.moveTo(40, 75); ctx.lineTo(1160, 75); ctx.stroke();
   const gap = gapSummary(data);
-  text('Seen', 40, 155, 26, 'EB Garamond');
-  ctx.save(); ctx.shadowColor = 'rgba(255,138,43,.6)'; ctx.shadowBlur = 28; text(gap.headline, 40, 275, gap.known && gap.gap ? 84 : 44, 'EB Garamond', gap.known && gap.gap ? 'corona' : 'text'); ctx.restore();
+  text('Not seen', 40, 155, 26, 'EB Garamond');
+  ctx.save(); ctx.shadowColor = 'rgba(255,138,43,.6)'; ctx.shadowBlur = 28; text(gap.headline, 40, 275, gap.known ? 84 : 44, 'IBM Plex Mono', gap.known && gap.gap ? 'corona' : 'text'); ctx.restore();
   text(gap.detail, 40, 337, 17, 'IBM Plex Mono', 'text-dim');
   if (gap.context) text(gap.context, 40, 385, 13);
   if (gap.percentage) text(gap.percentage, 40, 416, 14, 'IBM Plex Mono', 'text-dim');

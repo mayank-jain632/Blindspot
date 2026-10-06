@@ -40,7 +40,7 @@ plainly instead of promising complete historical tracking.
 ## Where we are
 
 The extension, receiver, SQLite store and React localhost dashboard are implemented.
-The dashboard uses the supplied design exports for a Risk landing view, file
+The dashboard uses the supplied design exports for a Map landing view, a Risk review queue, file
 detail, existing-quiz Review, a directory treemap, recorded activity, calibration
 and PNG export. Unsupported comprehension and authorship metrics are omitted.
 See [the dashboard contract](reports/dashboard-contract.md) for the actual fields

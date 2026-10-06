@@ -52,8 +52,8 @@ export function gapSummary(data) {
   const { reported_lines: seen, line_count: lines } = data.totals;
   return {
     known, gap, affected,
-    headline: !known ? 'Start recording' : gap ? `${number(gap)} lines` : 'No gaps recorded',
-    detail: !known ? 'Open Blindspot in VS Code to begin.' : gap ? `never on screen, across ${number(affected)} ${affected === 1 ? 'file' : 'files'}` : 'Every tracked line has been on screen.',
+    headline: !known ? 'Start recording' : `${gap && lines ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(Math.max(0.1, gap / lines * 100)) : 0}%`,
+    detail: !known ? 'Open Blindspot in VS Code to begin.' : gap ? `${number(gap)} lines never on screen, across ${number(affected)} ${affected === 1 ? 'file' : 'files'}` : 'No gaps recorded.',
     context: known ? `${number(seen)} of ${number(lines)} lines seen · ${number(data.files.length)} files tracked` : '',
     percentage: known && lines ? `${percent(seen, lines)}% seen` : '',
   };

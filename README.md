@@ -26,7 +26,7 @@ python3 scripts/seed_demo.py                      # writes sandbox/demo
   --workspace sandbox/demo/project --state-dir sandbox/demo/state --port 7777
 ```
 
-Open <http://127.0.0.1:7777>. (Screenshots above come from this demo.) To record your own
+Open <http://127.0.0.1:7777>. Map opens first, with the percentage of lines not seen and the underlying line counts. (Screenshots above come from this demo.) To record your own
 project, run the VS Code extension and point the receiver at it as described below.
 
 **Status: a local presentation MVP.** The VS Code extension, local receiver, SQLite storage and

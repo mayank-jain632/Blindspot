@@ -28,6 +28,9 @@ try {
   const screenshot = name => page.screenshot({ path: resolve(project, `reports/local/dashboard-checks/${name}.png`), fullPage: true });
 
   await page.goto(config.url);
+  await expect(page.locator('nav a[aria-current="page"]')).toHaveText('Map');
+  await expect(page.locator('.headline')).toHaveText('90.9%');
+  await page.getByRole('link', { name: 'Risk', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Files with gaps' })).toBeVisible();
   await expect(page.locator('nav a[aria-current="page"]')).toHaveText('Risk');
   await expect(page.locator('.risk-table tbody tr')).toHaveCount(2);
@@ -135,9 +138,9 @@ try {
   await page.getByRole('link', { name: 'Map', exact: true }).click();
   await expect(page.locator('.map-cell')).toHaveCount(2);
   await expect(page.locator('.map-cell.untested')).toHaveCount(1);
-  await expect(page.locator('.headline')).toHaveText('30 lines');
-  await expect(page.getByText('never on screen, across 2 files')).toBeVisible();
-  expect(await page.locator('.headline').evaluate(el => getComputedStyle(el).fontFamily)).toContain('Cormorant Garamond');
+  await expect(page.locator('.headline')).toHaveText('90.9%');
+  await expect(page.getByText('30 lines never on screen, across 2 files')).toBeVisible();
+  expect(await page.locator('.headline').evaluate(el => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono');
   await screenshot('map');
   await page.getByRole('link', { name: 'Timeline', exact: true }).click();
   await expect(page.locator('.weekly-chart')).toBeVisible();
@@ -154,9 +157,9 @@ try {
   await page.getByRole('button', { name: 'Download PNG' }).click();
   await (await download).saveAs(resolve(project, 'reports/local/dashboard-checks/share.png'));
   expect(await page.locator('canvas').evaluate(c => [c.width, c.height])).toEqual([1200, 630]);
-  expect(await page.evaluate(() => window.canvasText.find(t => t.text === '30 lines')?.font)).toContain('EB Garamond');
+  expect(await page.evaluate(() => window.canvasText.find(t => t.text === '90.9%')?.font)).toContain('IBM Plex Mono');
   expect(await page.evaluate(() => window.canvasText.some(t => /reading|understanding|eligible|current source/i.test(t.text)))).toBe(false);
-  await page.goto(config.empty_url);
+  await page.goto(`${config.empty_url}/#risk`);
   await expect(page.getByText('No recording yet.', { exact: true })).toBeVisible();
   await screenshot('empty');
   await page.getByRole('link', { name: 'Map', exact: true }).click();
@@ -228,13 +231,13 @@ try {
   await page.getByRole('button', { name: 'Show changed lines', exact: true }).click();
   await expect(page.getByRole('dialog').locator('.source-line.jump')).toHaveAttribute('data-line', '10');
   scenario = 'unknown';
-  await page.goto(config.empty_url);
+  await page.goto(`${config.empty_url}/#risk`);
   await expect(page.locator('.risk-table tbody tr')).toHaveCount(2);
   await expect(page.getByRole('columnheader', { name: 'Missing lines', exact: true })).toHaveCount(0);
   await expect(page.getByRole('columnheader', { name: 'Commits', exact: true })).toHaveCount(0);
   scenario = 'zero';
   await page.goto(`${config.empty_url}/?scenario=zero#map`);
-  await expect(page.locator('.headline')).toHaveText('No gaps recorded');
+  await expect(page.locator('.headline')).toHaveText('0%');
   await page.getByRole('link', { name: 'Learning', exact: true }).click();
   await expect(page.getByText('No gaps recorded.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'All files', exact: true }).click();

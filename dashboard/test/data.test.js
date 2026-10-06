@@ -44,12 +44,12 @@ test('timeline uses real calendar spacing and includes review-only weeks', () =>
   assert.equal(calendarAxis([], []), null);
 });
 
-test('gap headline leads with missing lines and handles zero and unavailable data', () => {
+test('gap headline reports the missing percentage and handles zero and unavailable data', () => {
   const file = { line_count: 446, reported_lines: 436, unknown_lines: 10 };
   const data = { has_observations: true, files: [file], totals: { line_count: 446, reported_lines: 436 } };
-  assert.equal(gapSummary(data).headline, '10 lines');
+  assert.equal(gapSummary(data).headline, '2.2%');
   assert.equal(gapSummary(data).percentage, '98% seen');
-  assert.equal(gapSummary({ ...data, files: [{ ...file, unknown_lines: 0 }] }).headline, 'No gaps recorded');
+  assert.equal(gapSummary({ ...data, files: [{ ...file, unknown_lines: 0 }] }).headline, '0%');
   assert.equal(gapSummary({ ...data, has_observations: false }).headline, 'Start recording');
   assert.equal(missingLines({ line_count: 446, reported_lines: 436 }), 10);
   assert.equal(missingLines({ ...file, current_uncertain: true }), null);

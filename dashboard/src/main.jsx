@@ -55,8 +55,8 @@ function Risk({ data, inspect }) {
 
 function MapView({ data, inspect }) {
   const gap = gapSummary(data);
-  return <main className="map-layout"><aside className="map-sidebar"><div className="rollup"><span className="eyebrow">Seen</span>
-    <div className={`headline mono ${!gap.known || !gap.gap ? 'headline-words' : ''}`}>{gap.headline}</div>
+  return <main className="map-layout"><aside className="map-sidebar"><div className="rollup"><span className="eyebrow">Not seen</span>
+    <div className={`headline mono ${!gap.known ? 'headline-words' : ''}`}>{gap.headline}</div>
     <p className="mono dim">{gap.detail}</p>
     {gap.known && <><p className="mono dim">{gap.context}</p><p className="mono dim">{gap.percentage}</p></>}
     {data.totals.uncertain_files > 0 && <p className="mono dim">{number(data.totals.uncertain_files)} files unknown · reconnect the extension</p>}</div>
@@ -464,7 +464,7 @@ function DashboardApp({ page, query }) {
   useEffect(() => { refresh(); const timer = setInterval(() => { if (!document.hidden) refresh(); }, 10000); return () => clearInterval(timer); }, []);
   const file = data?.files.find(f => f.path === selected);
   const inspect = f => setSelected(f.path);
-  return <><header className="app-header"><a href="#risk" className="brand"><span className="brand-mark" />blindspot</a><nav aria-label="Dashboard views">{[['risk', 'Risk'], ['learn', 'Learning'], ['map', 'Map'], ['timeline', 'Timeline'], ['insights', 'Insights'], ['share', 'Share']].map(([id, name]) => <a key={id} href={`#${id}`} aria-current={page === id ? 'page' : undefined}>{name}</a>)}</nav>
+  return <><header className="app-header"><a href="#map" className="brand"><span className="brand-mark" />blindspot</a><nav aria-label="Dashboard views">{[['map', 'Map'], ['risk', 'Risk'], ['learn', 'Learning'], ['timeline', 'Timeline'], ['insights', 'Insights'], ['share', 'Share']].map(([id, name]) => <a key={id} href={`#${id}`} aria-current={page === id ? 'page' : undefined}>{name}</a>)}</nav>
     <div className="header-context mono">{data && <><span>{data.workspace.split('/').at(-1)} · {data.git.branch || 'Git unavailable'}</span><span className="session-count" title="Recording sessions">{number(data.health.sessions.length)} sessions</span></>}<button disabled={busy} onClick={refresh}>{busy ? 'Refreshing' : 'Refresh'}</button></div></header>
     {error && <p className="notice" role="alert">{error}</p>}
     {!data ? <Empty title={error ? 'Receiver unavailable' : 'Loading files'}>Start the local server, then refresh.</Empty> : <>
@@ -502,7 +502,7 @@ function Router() {
   const [hash, setHash] = useState(window.location.hash);
   useEffect(() => { const change = () => setHash(window.location.hash); window.addEventListener('hashchange', change); return () => window.removeEventListener('hashchange', change); }, []);
   const [page, query = ''] = hash.replace(/^#/, '').split('?');
-  return <>{page === 'review' ? <Review key={hash} params={new URLSearchParams(query)} /> : <DashboardApp page={page || 'risk'} query={query} />}<Methodology /></>;
+  return <>{page === 'review' ? <Review key={hash} params={new URLSearchParams(query)} /> : <DashboardApp page={page || 'map'} query={query} />}<Methodology /></>;
 }
 
 createRoot(document.getElementById('root')).render(<Router />);
