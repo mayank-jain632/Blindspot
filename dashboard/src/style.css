@@ -443,3 +443,9 @@ h3.guide-name { margin: 0; font: 600 14px var(--mono); }
 .report-question { margin-top: 14px; }
 .report-question button { min-height: 32px; background: transparent; margin-right: 8px; }
 @media print { .guide-quiz-button, .quiz-maker, .report-question { display: none; } }
+
+/* Compact file inspection */
+.detail-actions { position: sticky; top: -24px; z-index: 2; flex-wrap: wrap; padding: 12px 0; margin: 0 0 12px; background: var(--panel); border-bottom: 1px solid var(--border); }
+.section-links { list-style: none; padding: 0; }
+.section-links a { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; font: 12px var(--mono); }
+.section-links small { color: var(--text-dim); }

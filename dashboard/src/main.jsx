@@ -114,32 +114,15 @@ function GuideItem({ item, jump, id, code }) {
     {code}
   </li>;
 }
-function StudyGuide({ guide, error, root, close }) {
-  const [scope, setScope] = useState('unseen'), [all, setAll] = useState(false), [copied, setCopied] = useState(false);
-  if (error) return <section className="study-guide"><h3>Study guide</h3><p className="notice">{error}</p></section>;
-  if (!guide) return <section className="study-guide"><h3>Study guide</h3><p className="dim">Loading guide.</p></section>;
-  const items = guideItems(guide, scope), shown = all ? items : items.slice(0, 8);
-  const jump = line => jumpTo(root.current, line);
-  async function copy() {
-    try { await navigator.clipboard.writeText(guideMarkdown(guide, scope)); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard unavailable */ }
-  }
-  return <section className="study-guide">
-    <div className="guide-title"><h3>Study guide</h3>
-      <div className="guide-toggle" role="group" aria-label="Guide scope">
-        <button aria-pressed={scope === 'unseen'} onClick={() => { setScope('unseen'); setAll(false); }}>Unseen code</button>
-        <button aria-pressed={scope === 'whole'} onClick={() => { setScope('whole'); setAll(false); }}>Whole file</button></div></div>
-    <button className="guide-open" onClick={() => { close(); window.location.hash = `guide?path=${encodeURIComponent(guide.path)}`; }}>Open full guide</button>
-    <p className="guide-note">Built from the code’s structure and Git history, with no AI. Anything marked Generated comes from a local model and may be wrong. On screen is not the same as understood.</p>
-    <p className="guide-summary mono">{guide.unseen_lines === 0 ? 'Every line of this file has been on screen.' : `${number(guide.unseen_lines)} lines never on screen · ${guide.overview.units_with_unseen} of ${guide.overview.units} code units`}</p>
-    {guide.overview.doc && <p className="guide-doc">{guide.overview.doc}</p>}
-    {guide.overview.imports.length > 0 && <p className="guide-meta mono dim">Uses {guide.overview.imports.join(', ')}</p>}
-    {scope === 'unseen' && guide.recent_changes.length > 0 && <div className="guide-changes"><h4>Changes you haven’t seen</h4><ul>{guide.recent_changes.slice(0, 5).map(c => <li key={`${c.commit}${c.date}${c.summary}`} className="mono"><span className="dim">{c.date || 'uncommitted'}</span> {c.summary} <span className="dim">· {c.unseen} unseen {c.unseen === 1 ? 'line' : 'lines'}</span></li>)}</ul></div>}
-    {items.length === 0 ? <p className="dim">{guide.items.length === 0 ? 'No code units found in this file.' : 'Every code unit has had all of its lines on screen.'}</p>
-      : <ol className="guide-list">{shown.map(i => <GuideItem key={`${i.name}:${i.start}`} item={i} jump={jump} />)}</ol>}
-    {items.length > 8 && <button className="guide-more" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `Show all ${items.length}`}</button>}
-    {guide.notes.map(n => <p key={n} className="guide-meta dim">{n}</p>)}
-    {items.length > 0 && <button className="guide-copy" onClick={copy}>{copied ? 'Copied' : 'Copy as Markdown'}</button>}
-  </section>;
+function StudyGuide({ guide, error, close }) {
+  if (error) return <p className="dim">{error}</p>;
+  if (!guide) return <p className="dim">Loading sections.</p>;
+  const items = guideItems(guide, 'unseen');
+  return items.length > 0 && <details className="study-guide"><summary>Unseen sections · {items.length}</summary>
+    <ul className="section-links">{items.slice(0, 5).map(item => <li key={item.start}><a onClick={close} href={`#learn?path=${encodeURIComponent(guide.path)}&line=${item.start}`}><span>{item.name}</span><small>{item.unseen} unseen lines</small></a></li>)}</ul>
+    <a className="button-link" onClick={close} href={`#guide?path=${encodeURIComponent(guide.path)}`}>Full guide</a>
+    {items.length > 5 && <a onClick={close} href={`#learn?path=${encodeURIComponent(guide.path)}`}>Study all sections</a>}
+  </details>;
 }
 
 function FileDetail({ file, data, close }) {
@@ -155,13 +138,19 @@ function FileDetail({ file, data, close }) {
   const current = source?.content_hash === file.content_hash && !file.current_uncertain;
   return <dialog ref={ref} className="detail-panel" onCancel={close} onClick={e => { if (e.target === ref.current && e.clientX < ref.current.getBoundingClientRect().left) close(); }} aria-labelledby="detail-title">
     <div className="detail-top"><h2 id="detail-title" className="mono">{file.path}</h2><button onClick={close} aria-label="Close file detail">×</button></div>
-    <div className="detail-meta mono dim">{number(file.line_count)} lines · {file.origin}</div><div className="detail-state"><Chip state={file.state} tested={file.review.tested} seen={file.reported_lines} total={file.line_count} uncertain={file.current_uncertain} />{file.review.passing_samples > 0 && <Chip state="sample_passed" />}</div>
-    <section className="record"><h3>This file</h3><ul>{file.evidence.map((e, i) => <li key={i}><span className={`evidence-dot state-${e.state}`} /><div><p className="mono">{e.text}</p></div></li>)}</ul>
-      </section>
-    <StudyGuide guide={guide} error={guideError} root={ref} close={close} />
-    <section className="detail-source"><div className="detail-source-heading"><h3>The source</h3>{file.changed_unseen_lines > 0 && <button disabled={!current} onClick={() => jumpTo(ref.current, file.changed_unseen_ranges[0][0])}>Show changed lines</button>}</div>{error ? <p className="notice">{error}</p> : current ? <Source text={source.text} file={file} /> : <p className="dim">Loading file.</p>}</section>
-    <div className="detail-actions"><button disabled={!file.review.available.length || !current} onClick={() => startReview(file)}>Review this file</button><a href={editor}>Open in editor</a></div>
-    {!file.review.available.length && <p className="footnote">No quiz ready for this file. Choose another file in Risk.</p>}
+    <div className="detail-meta mono dim">{number(file.line_count)} lines</div><div className="detail-state"><Chip state={file.state} tested={file.review.tested} seen={file.reported_lines} total={file.line_count} uncertain={file.current_uncertain} />{file.review.passing_samples > 0 && <Chip state="sample_passed" />}</div>
+    <div className="detail-actions">
+      {!file.current_uncertain && <a className="button-link" onClick={close} href={`#learn?path=${encodeURIComponent(file.path)}`}>Study unseen code</a>}
+      <a href={editor}>Open in VS Code</a>
+      {file.review.available.length > 0 && <button disabled={!current} onClick={() => startReview(file)}>Take quiz</button>}
+      {file.changed_unseen_lines > 0 && <button disabled={!current} onClick={() => jumpTo(ref.current, file.changed_unseen_ranges[0][0])}>Show changed lines</button>}
+    </div>
+    <section className="record"><h3>This file</h3>
+      <ul>{file.evidence.filter(e => !/timed visibility|interaction records|Git HEAD/.test(e.source)).map((e, i) => <li key={i}><span className={`evidence-dot state-${e.state}`} /><p className="mono">{e.text}</p></li>)}</ul>
+      <details><summary>More evidence</summary><ul>{file.evidence.filter(e => /timed visibility|interaction records|Git HEAD/.test(e.source)).map((e, i) => <li key={i}><span className={`evidence-dot state-${e.state}`} /><p className="mono">{e.text}</p></li>)}</ul></details>
+    </section>
+    <section className="detail-source"><h3>Source</h3>{error ? <p className="notice">{error}</p> : current ? <Source text={source.text} file={file} /> : <p className="dim">Loading file.</p>}</section>
+    <StudyGuide guide={guide} error={guideError} close={close} />
     <Methodology />
   </dialog>;
 }
@@ -328,7 +317,7 @@ function Learning({ data }) {
 }
 
 function LearningLesson({ file, guide, lines, local, chosen, pick, notes, explain, editor }) {
-  const [scope, setScope] = useState('unseen'), [selected, setSelected] = useState(null), [tab, setTab] = useState('code');
+  const [scope, setScope] = useState('unseen'), [selected, setSelected] = useState(Number(new URLSearchParams(window.location.hash.split('?')[1]).get('line')) || null), [tab, setTab] = useState('code');
   const items = guideItems(guide, scope);
   const index = Math.max(0, items.findIndex(i => i.start === selected));
   const item = items[index];
