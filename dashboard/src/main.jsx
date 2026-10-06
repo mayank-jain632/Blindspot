@@ -20,11 +20,6 @@ function Chip({ state, tested = true, seen, total, uncertain = false }) {
 function ChangedBadge({ file }) { return file.changed_unseen_lines > 0 ? <span className="changed-badge mono">{number(file.changed_unseen_lines)} changed {file.changed_unseen_lines === 1 ? 'line' : 'lines'} unseen</span> : null; }
 function FileName({ path }) { return <span className="file-name"><strong>{filename(path)}</strong><span>{directory(path)}</span></span>; }
 function startReview(file) { window.location.hash = `review?set_id=${encodeURIComponent(file.review.available[0].set_id)}`; }
-function ReviewAction({ file, inspect }) {
-  return <button onClick={() => file.review.available.length ? startReview(file) : inspect(file)}
-    title={file.review.available.length ? 'Answer this file’s quiz.' : 'Open this file.'}>
-    {file.review.available.length ? 'Review' : 'Inspect'}</button>;
-}
 
 function Risk({ data, inspect }) {
   const [filter, setFilter] = useState('flagged'), [dir, setDir] = useState('all');
@@ -34,9 +29,8 @@ function Risk({ data, inspect }) {
   return <main className="risk-page">
     <div className="page-heading"><span className="eyebrow">Review queue</span><h1>Files with gaps</h1><p>Ranked by unseen lines and recent commits. Passing a quiz lowers a file's rank.</p></div>
     <div className="filters mono">
-      {[['flagged', 'Flagged files'], ['all', 'All files'], ['wrong', 'Confidently wrong']].map(([key, name]) => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{name}</button>)}
+      {[['flagged', 'Files with gaps'], ['all', 'All files'], ...(data.review.confidently_wrong_files ? [['wrong', `Confidently wrong · ${data.review.confidently_wrong_files}`]] : [])].map(([key, name]) => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{name}</button>)}
       <label className="select-label">Directory<select value={dir} onChange={e => setDir(e.target.value)}><option value="all">All directories</option>{directories(data.files).map(d => <option key={d.name}>{d.name}</option>)}</select></label>
-      <span className="dim filter-note">Commit window: 90 days</span>
     </div>
     {!data.has_observations && <Empty title="No recording yet">Start recording in Blindspot for VS Code.</Empty>}
     {!data.files.length && <Empty title="No files to show">Open a Git project in VS Code.</Empty>}
@@ -44,10 +38,10 @@ function Risk({ data, inspect }) {
     {files.length > 0 && <div className="table-scroll"><table className="risk-table mono"><thead><tr><th aria-label="Rank">#</th><th>File</th><th>Seen</th>{showMissing && <th title="Lines never on screen">Missing lines</th>}{showCommits && <th title="Commits touching this file in the last 90 days">Commits</th>}<th>Quiz sample</th><th aria-label="Action"></th></tr></thead>
       <tbody>{files.map(f => <tr key={f.path} className={f === files[0] ? 'first-row' : ''}>
         <td className="dim" title="Unseen lines and recent commits set the rank; passing a quiz lowers it.">{f.rank}</td><td><button className="file-link" onClick={() => inspect(f)}><FileName path={f.path} /></button><ChangedBadge file={f} /></td>
-        <td><Chip state={f.state} tested={f.review.tested} seen={f.reported_lines} total={f.line_count} uncertain={f.current_uncertain} /></td>{showMissing && <td className="numeric missing-lines">{missingLines(f) === null ? 'Unknown' : <>{number(missingLines(f))}<i className="gap-bar" style={{ ...coverageStyle(f.reported_lines, f.line_count), '--w': `${Math.min(100, 100 * missingLines(f) / (f.line_count || 1))}%` }} /></>}</td>}
+        <td><Chip state={f.state} tested={f.review.tested} seen={f.reported_lines} total={f.line_count} uncertain={f.current_uncertain} /></td>{showMissing && <td className="numeric missing-lines">{missingLines(f) === null ? 'Unknown' : number(missingLines(f))}</td>}
         {showCommits && <td className="numeric">{Number.isFinite(f.commits_90d) ? number(f.commits_90d) : 'Unknown'}</td>}
         <td>{f.review.confidently_wrong ? <span className="attention-text">Confidently wrong</span> : f.review.passing_samples ? <Chip state="sample_passed" /> : <span className="dim">{f.review.tested ? 'Tested' : f.review.stale_results ? 'Changed since quiz' : 'Never tested'}</span>}</td>
-        <td><div className="row-actions">{!f.current_uncertain && <a className="button-link" href={`#guide?path=${encodeURIComponent(f.path)}`}>Guide</a>}<ReviewAction file={f} inspect={inspect} /></div></td>
+        <td><div className="row-actions">{!f.current_uncertain && <a className="button-link" href={`#learn?path=${encodeURIComponent(f.path)}`}>Study</a>}{f.review.available.length > 0 && <button onClick={() => startReview(f)}>Take quiz</button>}</div></td>
       </tr>)}</tbody></table></div>}
     {files.length > 0 && <p className="footnote">Hatched means never tested.</p>}
   </main>;
@@ -55,17 +49,19 @@ function Risk({ data, inspect }) {
 
 function MapView({ data, inspect }) {
   const gap = gapSummary(data);
+  const [dir, setDir] = useState('all'), [search, setSearch] = useState('');
+  const files = data.files.filter(f => (dir === 'all' || directory(f.path) === dir) && f.path.toLowerCase().includes(search.toLowerCase()));
   return <main className="map-layout"><aside className="map-sidebar"><div className="rollup"><span className="eyebrow">Not seen</span>
     <div className={`headline mono ${!gap.known ? 'headline-words' : ''}`}>{gap.headline}</div>
-    <p className="mono dim">{gap.detail}</p>
-    {gap.known && <><p className="mono dim">{gap.context}</p><p className="mono dim">{gap.percentage}</p></>}
+    <p className="mono dim">{gap.known ? `${number(gap.gap)} of ${number(data.totals.line_count)} lines not seen` : gap.detail}</p>
+    {gap.known && <p className="mono dim">{number(data.files.length)} files tracked</p>}
     {data.totals.uncertain_files > 0 && <p className="mono dim">{number(data.totals.uncertain_files)} files unknown · reconnect the extension</p>}</div>
-    {data.files.length > 0 && <div className="rollup"><span className="eyebrow">By directory · gaps first</span>{directories(data.files).map(d => <button className="directory-row" key={d.name} onClick={() => inspect(data.files.find(f => directory(f.path) === d.name))} title="Lines seen in this directory">
-      <span>{d.name}</span><span>{data.has_observations && d.lines ? `${percent(d.reported, d.lines)}% seen` : 'Unknown'}</span>{data.has_observations && d.lines > 0 && <progress style={coverageStyle(d.reported, d.lines)} max={d.lines} value={d.reported} />}<small>{number(d.files)} files · {number(d.lines)} lines{d.uncertain ? ` · ${d.uncertain} unknown` : ''}</small>
-    </button>)}</div>}
-    <div className="rollup coverage-legend"><span className="eyebrow">Lines seen</span><div className="coverage-scale" /><div className="coverage-labels"><span>0%</span><span>Below 100%</span></div><div className="legend"><div><span className="swatch" style={coverageStyle(1, 1)} /><span>100% seen</span></div><div><span className="swatch state-uncertain" /><span>Unknown</span></div></div><p className="mono dim">Hatched = never tested</p></div></aside>
-    <section className="map-main"><div className="map-toolbar mono"><span>Grouped by directory</span><span>Size: lines</span></div>
-      {data.files.length ? <><Treemap files={data.files} onSelect={inspect} /><details className="file-index"><summary>File index · {number(data.files.length)} files</summary><div>{data.files.map(f => <button key={f.path} onClick={() => inspect(f)}>{f.path}</button>)}</div></details></> : <Empty title="No files to map">Open a Git project in VS Code.</Empty>}
+    {data.files.length > 0 && <details className="rollup map-directories" open={window.innerWidth > 760}><summary>Directories · gaps first</summary><button className="directory-reset" aria-pressed={dir === 'all'} onClick={() => setDir('all')}>All directories</button>{directories(data.files).map(d => <button className="directory-row" key={d.name} aria-pressed={dir === d.name} onClick={() => setDir(d.name)} title="Filter this directory">
+      <span>{d.name}</span><span>{data.has_observations && d.lines ? `${percent(d.lines - d.reported, d.lines)}% not seen` : 'Unknown'}</span>{data.has_observations && d.lines > 0 && <progress style={coverageStyle(d.reported, d.lines)} max={d.lines} value={d.reported} />}<small>{number(d.files)} files · {number(d.lines)} lines{d.uncertain ? ` · ${d.uncertain} unknown` : ''}</small>
+    </button>)}</details>}
+    <details className="rollup coverage-legend" open={window.innerWidth > 760}><summary>Coverage legend</summary><div className="coverage-scale" /><div className="coverage-labels"><span>0%</span><span>Below 100%</span></div><div className="legend"><div><span className="swatch" style={coverageStyle(1, 1)} /><span>100% seen</span></div><div><span className="swatch state-uncertain" /><span>Unknown</span></div></div><p className="mono dim">Hatched = never tested</p></details></aside>
+    <section className="map-main"><div className="map-toolbar mono"><label className="map-search">Find a file<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="File name or path" /></label><span>Size: lines</span><a className="button-link" href="#share">Export PNG</a></div>
+      {data.files.length ? <>{files.length ? <Treemap files={files} onSelect={inspect} /> : <Empty title="No matching files">Change the search or select All directories.</Empty>}<details className="file-index" open={!!search}><summary>File index · {number(files.length)} files</summary><div>{files.map(f => <button key={f.path} onClick={() => inspect(f)}>{f.path}</button>)}</div></details></> : <Empty title="No files to map">Open a Git project in VS Code.</Empty>}
     </section></main>;
 }
 
@@ -453,11 +449,13 @@ function DashboardApp({ page, query }) {
   useEffect(() => { refresh(); const timer = setInterval(() => { if (!document.hidden) refresh(); }, 10000); return () => clearInterval(timer); }, []);
   const file = data?.files.find(f => f.path === selected);
   const inspect = f => setSelected(f.path);
-  return <><header className="app-header"><a href="#map" className="brand"><span className="brand-mark" />blindspot</a><nav aria-label="Dashboard views">{[['map', 'Map'], ['risk', 'Risk'], ['learn', 'Learning'], ['timeline', 'Timeline'], ['insights', 'Insights'], ['share', 'Share']].map(([id, name]) => <a key={id} href={`#${id}`} aria-current={page === id ? 'page' : undefined}>{name}</a>)}</nav>
-    <div className="header-context mono">{data && <><span>{data.workspace.split('/').at(-1)} · {data.git.branch || 'Git unavailable'}</span><span className="session-count" title="Recording sessions">{number(data.health.sessions.length)} sessions</span></>}<button disabled={busy} onClick={refresh}>{busy ? 'Refreshing' : 'Refresh'}</button></div></header>
+  return <><header className="app-header"><a href="#map" className="brand"><span className="brand-mark" />blindspot</a><nav aria-label="Dashboard views">{[['map', 'Map'], ['risk', 'Risk'], ['learn', 'Learning'], ['timeline', 'Timeline'], ['insights', 'Insights']].map(([id, name]) => <a key={id} href={`#${id}`} aria-current={page === id ? 'page' : undefined}>{name}</a>)}</nav>
+    <div className="header-context mono">{data && <>
+      <span className="project-context">{data.workspace.split('/').at(-1)} · {data.git.branch || 'Git unavailable'}</span>
+      <details className="connection-details"><summary>{data.health.sessions.some(s => s.connection_state === 'connected' && s.status === 'recording') ? 'Recording' : 'Not recording'}</summary><div>{number(data.health.sessions.length)} sessions<br />Updated {new Date(data.generated_at).toLocaleTimeString()}<br />Local only</div></details>
+    </>}<button disabled={busy} onClick={refresh}>{busy ? 'Refreshing' : 'Refresh'}</button></div></header>
     {error && <p className="notice" role="alert">{error}</p>}
     {!data ? <Empty title={error ? 'Receiver unavailable' : 'Loading files'}>Start the local server, then refresh.</Empty> : <>
-      <div className="connection-strip mono" title="Extension connection"><span>{data.health.sessions.some(s => s.connection_state === 'connected' && s.status === 'recording') ? 'Recording connected' : 'No active recording'}</span><span>Updated {new Date(data.generated_at).toLocaleTimeString()}</span><span>Local only</span></div>
       {data.review.error && <p className="notice">Cannot load quizzes. Check the quiz folder and refresh.</p>}
       {page === 'learn' ? new URLSearchParams(query).get('path') ? <GuidePage data={data} path={new URLSearchParams(query).get('path')} learning /> : <Learning data={data} /> : page === 'guide' ? <GuidePage data={data} path={new URLSearchParams(query).get('path') || ''} /> : page === 'map' ? <MapView data={data} inspect={inspect} /> : page === 'timeline' ? <Timeline data={data} inspect={inspect} /> : page === 'insights' ? <Insights data={data} /> : page === 'share' ? <Share data={data} /> : <Risk data={data} inspect={inspect} />}
       {data.inventory_diagnostics.length > 0 && <p className="notice">Some files could not be loaded. Check the project folder and refresh.</p>}

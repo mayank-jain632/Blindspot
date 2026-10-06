@@ -79,7 +79,6 @@ export async function drawShare(canvas, data) {
   const palette = { red: color('coverage-red'), yellow: color('coverage-yellow'), blue: color('coverage-blue'), unknown: color('state-uncertain') };
   const ctx = canvas.getContext('2d'); canvas.width = 1200; canvas.height = 630;
   ctx.fillStyle = color('ground'); ctx.fillRect(0, 0, 1200, 630);
-  const glow = ctx.createRadialGradient(1200, 0, 0, 1200, 0, 700); glow.addColorStop(0, 'rgba(255,138,43,.35)'); glow.addColorStop(1, 'rgba(255,138,43,0)'); ctx.fillStyle = glow; ctx.fillRect(0, 0, 1200, 630);
   const sun = ctx.createRadialGradient(24, 38, 0, 24, 38, 15); sun.addColorStop(0, '#000'); sun.addColorStop(.3, '#000'); sun.addColorStop(.38, color('sun')); sun.addColorStop(.7, color('corona')); sun.addColorStop(1, 'rgba(255,138,43,0)'); ctx.fillStyle = sun; ctx.fillRect(0, 20, 50, 40);
   const text = (value, x, y, size, family = 'IBM Plex Mono', token = 'text') => {
     ctx.font = `${size}px "${family}"`; ctx.fillStyle = color(token); ctx.fillText(value, x, y);
@@ -88,7 +87,7 @@ export async function drawShare(canvas, data) {
   ctx.strokeStyle = color('border'); ctx.beginPath(); ctx.moveTo(40, 75); ctx.lineTo(1160, 75); ctx.stroke();
   const gap = gapSummary(data);
   text('Not seen', 40, 155, 26, 'EB Garamond');
-  ctx.save(); ctx.shadowColor = 'rgba(255,138,43,.6)'; ctx.shadowBlur = 28; text(gap.headline, 40, 275, gap.known ? 84 : 44, 'IBM Plex Mono', gap.known && gap.gap ? 'corona' : 'text'); ctx.restore();
+  ctx.save(); ctx.shadowColor = 'rgba(255,138,43,.6)'; ctx.shadowBlur = 0; text(gap.headline, 40, 275, gap.known ? 84 : 44, 'IBM Plex Mono', 'text'); ctx.restore();
   text(gap.detail, 40, 337, 17, 'IBM Plex Mono', 'text-dim');
   if (gap.context) text(gap.context, 40, 385, 13);
   if (gap.percentage) text(gap.percentage, 40, 416, 14, 'IBM Plex Mono', 'text-dim');

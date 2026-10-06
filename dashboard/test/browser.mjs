@@ -101,7 +101,7 @@ try {
   await page.getByRole('link', { name: 'Back to Risk' }).click();
   await expect(page.getByRole('heading', { name: 'Files with gaps' })).toBeVisible();
   await page.locator('.file-link').filter({ hasText: 'a.py' }).click();
-  await page.getByRole('button', { name: 'Take quiz', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Take quiz', exact: true }).click();
   await expect(page.locator('.question-panel h1')).toHaveText('Question 0: first');
   await expect(page.locator('.state-chip, .app-header, .connection-strip, .headline, .risk-table')).toHaveCount(0);
   await expect(page.locator('[class*="state-"]')).toHaveCount(0);
@@ -136,8 +136,12 @@ try {
   await expect(page.locator('.map-cell')).toHaveCount(2);
   await expect(page.locator('.map-cell.untested')).toHaveCount(1);
   await expect(page.locator('.headline')).toHaveText('90.9%');
-  await expect(page.getByText('30 lines never on screen, across 2 files')).toBeVisible();
+  await expect(page.getByText('30 of 33 lines not seen')).toBeVisible();
   expect(await page.locator('.headline').evaluate(el => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono');
+  await page.getByRole('searchbox').fill('b.py');
+  await expect(page.locator('.map-cell')).toHaveCount(1);
+  await expect(page.locator('.file-index button')).toHaveText('b.py');
+  await page.getByRole('searchbox').fill('');
   await screenshot('map');
   await page.getByRole('link', { name: 'Timeline', exact: true }).click();
   await expect(page.locator('.weekly-chart')).toBeVisible();
@@ -149,7 +153,8 @@ try {
   await expect(page.getByRole('heading', { name: 'Confidently wrong' })).toBeVisible();
   await expect(page.locator('.calibration').last()).toContainText('3 / 3 answers correct');
   await screenshot('insights');
-  await page.getByRole('link', { name: 'Share', exact: true }).click();
+  await page.getByRole('link', { name: 'Map', exact: true }).click();
+  await page.getByRole('link', { name: 'Export PNG', exact: true }).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download PNG' }).click();
   await (await download).saveAs(resolve(project, 'reports/local/dashboard-checks/share.png'));
@@ -170,7 +175,7 @@ try {
   await expect(page.getByText(/does not establish that it was read or understood/)).toHaveCount(1);
   await page.getByRole('button', { name: 'Close methodology' }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const view of ['Risk', 'Learning', 'Map', 'Timeline', 'Insights', 'Share']) {
+  for (const view of ['Risk', 'Learning', 'Map', 'Timeline', 'Insights']) {
     await page.getByRole('link', { name: view, exact: true }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     expect(await page.locator('body').innerText()).not.toMatch(/eligible|current source|observer|binding|collector|stored|\brecord\b/i);
