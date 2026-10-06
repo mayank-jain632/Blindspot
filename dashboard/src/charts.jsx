@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
 import { coverageColor, coverageStyle, gapSummary, filename, layout, number, label } from './data';
 
 export function Treemap({ files, onSelect }) {
@@ -29,25 +29,28 @@ export function Treemap({ files, onSelect }) {
 }
 
 export function Weekly({ axis, ticks }) {
+  const clip = useId().replaceAll(':', '');
   if (!axis || !axis.columns.some(w => w.files_touched > 0)) return null;
   const shown = axis.columns;
-  const max = Math.max(...shown.map(w => w.files_touched || 0));
-  const step = 42, width = shown.length * step, height = shown.length <= 4 ? 135 : 190, plotHeight = height - 45;
-  return <><div className="chart-legend mono"><span className="event-key visibility">Files touched</span><span>│ Quiz completed</span></div>
-    <div className="weekly-plot"><svg className="weekly-chart" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Files touched per week">
-      <line x1="0" x2={width} y1={plotHeight} y2={plotHeight} className="axis" />
-      {shown.map((w, i) => {
-        const h = (w.files_touched || 0) / max * (plotHeight - 12);
-        return <g key={w.week}>
-          {w.files_touched > 0 && <rect className="event-fill visibility weekly-bar" x={i * step} y={plotHeight - h} width="36" height={h}><title>{`${w.week}: ${number(w.files_touched)} files · ${number(w.event_count)} events`}</title></rect>}
-          {(i % 2 === 0 || shown.length === 1) && <text x={i * step} y={height - 15}>{w.week.slice(5)}</text>}
-        </g>;
-      })}
-      {ticks.filter(t => +new Date(t.at) >= axis.start && +new Date(t.at) < axis.end).map(t => {
-        const x = (+new Date(t.at) - axis.start) / (axis.end - axis.start) * width;
-        return <line key={t.attempt_id} x1={x} x2={x} y1="0" y2={plotHeight} className="review-tick"><title>Quiz completed · {t.at}</title></line>;
-      })}
-    </svg></div><p className="mono dim">Busiest week: {number(max)} {max === 1 ? 'file' : 'files'}.</p></>;
+  const split = shown.some(w => Number.isFinite(w.files_on_screen));
+  const series = split ? [{key:'files_on_screen', name:'Files on screen', type:'screen'}, {key:'files_changed', name:'Files changed', type:'changes'}] : [{key:'files_touched',name:'Files touched',type:'screen'}];
+  const max = Math.max(1, ...shown.flatMap(w => series.map(s => w[s.key] || 0)));
+  const width = Math.max(600, shown.length * 56), height = 240, left = 36, bottom = 190;
+  const x = i => left + (shown.length === 1 ? (width - left - 20) / 2 : i / (shown.length - 1) * (width - left - 20));
+  const y = count => bottom - count / max * 160;
+  return <><div className="chart-legend mono">{series.map(s => <span key={s.key} className={`line-key ${s.type}`}>{s.name}</span>)}<span>│ Quiz completed</span></div>
+    <div className="weekly-plot"><svg className="activity-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Weekly files on screen and files changed">
+      <defs><clipPath id={clip}><rect className="chart-reveal" width={width} height={height} /></clipPath></defs>
+      {[0, max].map(n => <g key={n}><line x1={left} x2={width} y1={y(n)} y2={y(n)} className="axis" /><text x="0" y={y(n)+4}>{n}</text></g>)}
+      {shown.map((w,i) => (i % Math.max(1, Math.ceil(shown.length / 8)) === 0 || i === shown.length - 1) && <text key={w.week} x={x(i)} y="218" textAnchor="middle">{w.week.slice(5)}</text>)}
+      <g clipPath={`url(#${clip})`}>{series.map(s => <g key={s.key} className={`activity-series ${s.type}`}>
+        <path d={shown.map((w,i) => `${i ? 'L' : 'M'}${x(i)},${y(w[s.key] || 0)}`).join(' ')} />
+        {shown.map((w,i) => <circle key={w.week} cx={x(i)} cy={y(w[s.key] || 0)} r="4"><title>{`${w.week}: ${w[s.key] || 0} ${s.name.toLowerCase()} · ${w.event_count || 0} events`}</title></circle>)}
+      </g>)}{ticks.filter(t => +new Date(t.at) >= axis.start && +new Date(t.at) < axis.end).map(t => {
+        const pos = left + (+new Date(t.at) - axis.start) / (axis.end - axis.start) * (width - left - 20);
+        return <line key={t.attempt_id} x1={pos} x2={pos} y1="20" y2={bottom} className="review-tick"><title>Quiz completed · {t.at}</title></line>;
+      })}</g>
+    </svg></div><p className="mono dim">Counts are distinct files per week.</p></>;
 }
 
 export function Lanes({ files, events, ticks, onSelect, axis }) {

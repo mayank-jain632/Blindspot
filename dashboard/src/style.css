@@ -535,3 +535,26 @@ input[type='search'] { min-height: 44px; max-width: 100%; padding: 10px 12px; ba
 .detail-top { position: sticky; top: -24px; z-index: 3; padding: 12px 0; background: var(--panel); }
 .detail-actions { top: 44px; align-items: center; }
 .detail-actions .button-link { margin: 0; }
+
+/* Weekly activity and a balanced learning overview. */
+.activity-chart { width: 100%; min-width: 320px; max-height: 300px; display: block; margin-top: 18px; }
+.activity-chart text { fill: var(--text-dim); font: 12px var(--mono); }
+.activity-series path { fill: none; stroke-width: 2; stroke-linejoin: round; }
+.activity-series.screen path { stroke: var(--text); }
+.activity-series.screen circle { fill: var(--text); }
+.activity-series.changes path { stroke: var(--accent); stroke-dasharray: 6 4; }
+.activity-series.changes circle { fill: var(--accent); }
+.chart-reveal { transform-box: fill-box; transform-origin: left; animation: activity-reveal 900ms ease-out both; }
+@keyframes activity-reveal { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.line-key::before { content: ''; display: inline-block; width: 20px; border-top: 2px solid var(--text); margin-right: 8px; vertical-align: middle; }
+.line-key.changes::before { border-color: var(--accent); border-top-style: dashed; }
+.learning-overview { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; border-bottom: 1px solid var(--border); padding: 24px 0; margin-top: 8px; }
+.learning-overview strong { font-size: 26px; }
+.learning-overview p { color: var(--text-dim); max-width: 480px; }
+.learning-files { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; border: none; }
+.learning-file { padding: 20px; background: var(--panel); border: 1px solid var(--border); }
+.learning-file.recommended-file { border-left: 2px solid var(--accent); }
+.learning-file progress { margin-top: 12px; height: 4px; }
+.learning-file-actions { margin-top: 16px; gap: 12px; flex-wrap: wrap; }
+@media (max-width:760px) { .learning-files { grid-template-columns: 1fr; } .learning-overview { gap: 16px; grid-template-columns: 1fr 1fr; } .learning-overview p { font-size: 14px; } }
+@media (prefers-reduced-motion:reduce) { .chart-reveal { animation: none; } }

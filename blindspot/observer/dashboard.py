@@ -145,15 +145,17 @@ class Dashboard:
             ranked = sorted(files.values(), key=priority)
             for rank, file in enumerate(ranked, 1): file["rank"] = rank
             # Daily groups include every stored event; the lane window remains bounded.
-            days = self.store.db.execute("SELECT substr(observed_at,1,10),path,COUNT(*) FROM events "
-                                         "WHERE kind IN ('visibility','interaction','file_event') AND path IS NOT NULL GROUP BY 1,2").fetchall()
+            days = self.store.db.execute("SELECT substr(observed_at,1,10),path,kind,COUNT(*) FROM events "
+                                         "WHERE kind IN ('visibility','interaction','file_event') AND path IS NOT NULL GROUP BY 1,2,3").fetchall()
             weekly = defaultdict(Counter)
             touched = defaultdict(set)
-            for day, path, count in days:
+            by_kind = defaultdict(lambda: defaultdict(set))
+            for day, path, kind, count in days:
                 date = datetime.fromisoformat(day)
                 week = (date - timedelta(days=date.weekday())).date().isoformat()
                 weekly[week]["event_count"] += count
                 touched[week].add(path)
+                by_kind[week][kind].add(path)
             return {**overview, "files": ranked, "queue": [f["path"] for f in ranked if f["flagged"]],
                     "has_observations": overview["health"]["storage"]["events"] > 0,
                     "git": {k: v for k, v in git.items() if k != "commits"}, "ranking": RANKING,
@@ -161,7 +163,7 @@ class Dashboard:
                         "confidently_wrong_files": sum(f["review"]["confidently_wrong"] for f in ranked),
                         "completed_attempts": len(completed), "calibration": calibration,
                         "ticks": review_ticks},
-                    "weekly": [{"week": w, "files_touched": len(touched[w]), **counts} for w, counts in sorted(weekly.items())],
+                    "weekly": [{"week": w, "files_touched": len(touched[w]), "files_on_screen": len(by_kind[w]["visibility"]), "files_changed": len(by_kind[w]["file_event"]), **counts} for w, counts in sorted(weekly.items())],
                     "derivations": {"display": "Reported lines / eligible current lines; uncertain files excluded. Display evidence, not reading.",
                         "commits": "Distinct Git commits touching the current path in the last 90 days; no rename attribution.",
                         "wrong": "Distinct current files with at least one unresolved solid-confidence wrong answer on a matching target/context binding.",

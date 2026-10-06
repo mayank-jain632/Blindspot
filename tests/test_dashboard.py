@@ -65,8 +65,23 @@ class DashboardTests(SandboxCase):
             event["observed_at"] = day + "T12:00:00+00:00"
             self.store.append(event)
         self.assertEqual(self.dashboard.overview()["weekly"], [
-            {"week": "2026-09-07", "files_touched": 2, "event_count": 3},
-            {"week": "2026-09-21", "files_touched": 1, "event_count": 1}])
+            {"week": "2026-09-07", "files_touched": 2, "files_on_screen": 0, "files_changed": 0, "event_count": 3},
+            {"week": "2026-09-21", "files_touched": 1, "files_on_screen": 0, "files_changed": 0, "event_count": 1}])
+
+    def test_weekly_series_distinguish_visibility_from_unattributed_changes(self):
+        self.store.append(self.event("session_start", {"mode": "visible-editors-reported-ranges"}))
+        self.store.append(self.event("snapshot", {"path": "a.py", "content_hash": digest(CODE), "text": CODE, "line_count": len(CODE.split("\n")), "origin": "disk"}))
+        for kind, payload in [
+            ("visibility", {"path": "a.py", "content_hash": digest(CODE), "ranges": [[1, 3]], "duration_ms": 1000, "start_ms": 0, "end_ms": 1000, "focused": True, "focus_scope": "window", "editor_focus": "unverified"}),
+            ("file_event", {"path": "a.py", "operation": "change", "cause": "unattributed-filesystem-event"}),
+            ("file_event", {"path": "a.py", "operation": "change", "cause": "unattributed-filesystem-event"}),
+            ("file_event", {"path": "b.py", "operation": "change", "cause": "unattributed-filesystem-event"}),
+        ]:
+            self.store.append(self.event(kind, payload, 1000))
+        week = self.dashboard.overview()["weekly"][0]
+        self.assertEqual(week["files_on_screen"], 1)
+        self.assertEqual(week["files_changed"], 2)
+        self.assertEqual(week["files_touched"], 2)
 
     def test_eligible_sample_pass_lowers_rank_without_altering_display(self):
         set_id = self.quiz()

@@ -159,7 +159,7 @@ function Timeline({ data, inspect }) {
   const within = at => axis && +new Date(at) >= axis.start && +new Date(at) < axis.end;
   const hasLanes = data.timeline.some(e => within(e.observed_at) && data.files.some(f => f.path === e.payload.path) && ['visibility', 'interaction', 'file_event'].includes(e.kind)) || data.review.ticks.some(t => within(t.at) && data.files.some(f => f.path === t.path));
   return <main className="standard-page"><div className="page-heading"><span className="eyebrow">Activity</span><h1>Activity over time</h1><p>What the extension observed, by week.</p></div>
-    {hasWeekly ? <section className="chart-panel"><h2>Files touched per week</h2><Weekly axis={axis} ticks={data.review.ticks} /></section> : <Empty title="No activity yet">Start recording in VS Code to see files touched per week.</Empty>}
+    {hasWeekly ? <section className="chart-panel"><h2>On screen and changed</h2><Weekly axis={axis} ticks={data.review.ticks} /></section> : <Empty title="No activity yet">Start recording in VS Code to see files touched per week.</Empty>}
     {hasLanes && <section className="chart-panel"><h2>Activity by file</h2><p className="mono">The last {number(data.timeline.length)} observed events, grouped by file.</p><Lanes files={data.files} events={data.timeline} ticks={data.review.ticks} onSelect={inspect} axis={axis} /><p className="lane-legend mono">Short mark: on screen · Tall mark: editor interaction · Dashed mark: file changed · Dot: quiz completed</p></section>}
   </main>;
 }
@@ -295,14 +295,15 @@ function Learning({ data }) {
   const lesson = file => `#learn?path=${encodeURIComponent(file.path)}`;
   return <main className="standard-page learning-page">
     <div className="page-heading"><span className="eyebrow">Learning</span><h1>Code to revisit</h1><p>Choose a file to study its unseen sections.</p></div>
+    {gaps.length > 0 && <div className="learning-overview"><div><span className="eyebrow">To revisit</span><strong className="mono">{gaps.length} files</strong><p>Work through the unseen sections, then check a passage with a quiz.</p></div><div><span className="eyebrow">Unseen lines</span><strong className="mono">{number(gaps.reduce((n,f) => n + missingLines(f), 0))}</strong><p>Across files with known coverage.</p></div></div>}
     <div className="filters mono"><button aria-pressed={scope === 'gaps'} onClick={() => setScope('gaps')}>Files with gaps</button><button aria-pressed={scope === 'all'} onClick={() => setScope('all')}>All files</button><span className="dim">{number(files.length)} files</span></div>
     {!data.files.length ? <Empty title="No files to study">Open a Git project and start recording in VS Code.</Empty> : !files.length && <Empty title={known.length ? 'No gaps recorded' : 'File status unknown'}>{known.length ? 'Choose All files to revisit a section or take a quiz.' : 'Reconnect the extension and refresh.'}</Empty>}
     <div className="learning-files">{files.map(file => <article className={`learning-file ${scope === 'gaps' && file === first ? 'recommended-file' : ''}`} key={file.path}>
       <div className="learning-file-heading">{scope === 'gaps' && file === first && <span className="eyebrow">Start here</span>}<h2 className="mono">{file.path}</h2><Chip state={file.state} tested={file.review.tested} seen={file.reported_lines} total={file.line_count} /></div>
-      <p className="mono dim">{number(missingLines(file))} unseen lines</p>
+      <p className="mono dim">{number(missingLines(file))} unseen · {number(file.line_count)} total lines</p><progress aria-label={`Lines seen in ${file.path}`} style={coverageStyle(file.reported_lines, file.line_count)} max={Math.max(1, file.line_count)} value={file.reported_lines} />
       <ChangedBadge file={file} />
       {(file.review.confidently_wrong || file.review.stale_results || file.review.available.length > 0) && <p className="mono learning-quiz-status">{file.review.confidently_wrong ? 'Confidently wrong answer to revisit' : file.review.stale_results ? 'Changed since quiz' : `${number(file.review.available.length)} quizzes ready`}</p>}
-      <div className="learning-file-actions"><a className="button-link" href={lesson(file)}>Study</a></div>
+      <div className="learning-file-actions"><a className="button-link" href={lesson(file)}>Study</a><a href={`#guide?path=${encodeURIComponent(file.path)}`}>Full guide</a>{file.review.available.length > 0 && <button onClick={() => startReview(file)}>Take quiz</button>}</div>
     </article>)}</div>
     {known.length < data.files.length && <p className="mono dim">{number(data.files.length - known.length)} files unknown · reconnect the extension</p>}
   </main>;
