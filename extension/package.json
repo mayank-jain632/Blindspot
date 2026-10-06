@@ -2,33 +2,98 @@
   "name": "blindspot-observer",
   "displayName": "Blindspot Observer (Local Pilot)",
   "description": "Opt-in visible editor observations for the local Blindspot collector experiment.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "blindspot-local",
   "private": true,
-  "engines": { "vscode": "^1.95.0" },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
   "main": "./extension.js",
-  "extensionKind": ["ui"],
-  "activationEvents": ["onStartupFinished"],
-  "scripts": { "test": "node --test test/*.test.js", "check": "node --check extension.js && node --check core.js && node --check transport.js && node --check surfaces.js && node --check overview.js" },
+  "extensionKind": [
+    "ui"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node --check extension.js && node --check core.js && node --check transport.js && node --check surfaces.js && node --check overview.js && node --check sidebar.js"
+  },
   "contributes": {
     "commands": [
-      {"command": "blindspot.start", "title": "Blindspot: Start Recording"},
-      {"command": "blindspot.pause", "title": "Blindspot: Pause Recording"},
-      {"command": "blindspot.resume", "title": "Blindspot: Resume Recording"},
-      {"command": "blindspot.stop", "title": "Blindspot: Stop Recording"},
-      {"command": "blindspot.reconnect", "title": "Blindspot: Reconnect Now"},
-      {"command": "blindspot.visibility", "title": "Blindspot: Toggle Editor Visibility Exclusion"},
-      {"command": "blindspot.diagnostics", "title": "Blindspot: Show Recording Diagnostics"},
-      {"command": "blindspot.overview", "title": "Blindspot: Show Codebase Overview"},
-      {"command": "blindspot.open", "title": "Blindspot: Open Local Inspector"},
-      {"command": "blindspot.marker", "title": "Blindspot: Add Pilot Marker"},
-      {"command": "blindspot.controls", "title": "Blindspot: Recording Controls"}
+      {
+        "command": "blindspot.start",
+        "title": "Blindspot: Start Recording"
+      },
+      {
+        "command": "blindspot.pause",
+        "title": "Blindspot: Pause Recording"
+      },
+      {
+        "command": "blindspot.resume",
+        "title": "Blindspot: Resume Recording"
+      },
+      {
+        "command": "blindspot.stop",
+        "title": "Blindspot: Stop Recording"
+      },
+      {
+        "command": "blindspot.reconnect",
+        "title": "Blindspot: Reconnect Now"
+      },
+      {
+        "command": "blindspot.visibility",
+        "title": "Blindspot: Toggle Editor Visibility Exclusion"
+      },
+      {
+        "command": "blindspot.diagnostics",
+        "title": "Blindspot: Show Recording Diagnostics"
+      },
+      {
+        "command": "blindspot.overview",
+        "title": "Blindspot: Show Codebase Overview"
+      },
+      {
+        "command": "blindspot.open",
+        "title": "Blindspot: Open Local Inspector"
+      },
+      {
+        "command": "blindspot.marker",
+        "title": "Blindspot: Add Pilot Marker"
+      },
+      {
+        "command": "blindspot.controls",
+        "title": "Blindspot: Recording Controls"
+      }
     ],
     "configuration": {
       "title": "Blindspot Observer",
       "properties": {
-        "blindspot.connectionFile": {"type": "string", "default": "", "scope": "machine", "description": "Absolute path to the receiver connection.json. Development launch supplies this automatically."}
+        "blindspot.connectionFile": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Absolute path to the receiver connection.json. Development launch supplies this automatically."
+        }
       }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "blindspot",
+          "title": "Blindspot",
+          "icon": "media/blindspot.svg"
+        }
+      ]
+    },
+    "views": {
+      "blindspot": [
+        {
+          "id": "blindspot.dashboard",
+          "name": "Coverage",
+          "type": "webview"
+        }
+      ]
     }
   }
 }

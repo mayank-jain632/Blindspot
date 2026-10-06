@@ -100,6 +100,11 @@ not committed, so after `git pull` or a branch switch you must rebuild or the ol
 Open **http://127.0.0.1:7777**. If an older receiver is running, stop it with
 Ctrl+C in its terminal before restarting. The extension reconnects using the
 same `connection.json`; its existing F5 launch already points to this state.
+The extension also provides a **Blindspot** activity-bar sidebar with unseen coverage,
+changed unseen lines, file shortcuts, recording controls, and **Full dashboard**.
+After updating the extension, restart the F5 Extension Development Host (or reload
+VS Code if installed), then click the Blindspot eye icon in the activity bar.
+It uses the same connection file and receiver; it does not start recording by itself.
 Start recording in VS Code to add observations. The dashboard refreshes every
 10 seconds and has a manual Refresh button.
 
@@ -429,3 +434,8 @@ The 10–15-target human usefulness trial remains open.
 For the controlled Claude Code sandbox exercise, follow
 [the pilot instructions](reports/phase1-pilot.md). They include prompts for direct
 and shell edits, commit/report commands, and expected evidence states.
+
+Timeline shows weekly distinct files on screen versus files with filesystem changes.
+The lines draw in when the view opens, with animation disabled for reduced-motion preferences.
+Changes can come from any tool; these series do not identify human or agent authorship.
+Restart the Python receiver after updating to load these new weekly fields.

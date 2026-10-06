@@ -349,6 +349,7 @@ function activate(context) {
   };
   for(const [name,handler] of Object.entries(commands))context.subscriptions.push(vscode.commands.registerCommand('blindspot.'+name,handler));
   context.subscriptions.push({dispose:()=>{void stop();}});
+  if(vscode.window.registerWebviewViewProvider)context.subscriptions.push(vscode.window.registerWebviewViewProvider('blindspot.dashboard',require('./sidebar').createSidebar(vscode,context,config)));
   shutdown=stop;
   return {stop};
 }

@@ -84,3 +84,10 @@ Everything is local; no analytics or telemetry are intended.
 - Guide metadata/export and correct quiz explanations are collapsed; quiz results link back to the file.
 - Mobile uses More navigation and a section selector. Coverage colors/hatching remain; chrome glow is reduced.
 - Existing collector, storage and grading behavior remain intact. No new automatic quiz generation.
+
+## Sidebar and activity chart (2026-10-06)
+
+- Extension 0.3.1 contributes a Blindspot activity-bar Coverage webview: unseen percentage, tracked files, changed unseen lines, file shortcuts, recording controls and full-dashboard link. Token stays in the extension host; workspace checks precede reads. Uses existing receiver configuration.
+- Timeline now uses animated weekly line series: distinct files with visibility events vs distinct files with filesystem events. These are not human/agent authorship. Reduced-motion disables the reveal. Python receiver must restart for new weekly fields.
+- Learning returns to compact two-column cards with a small overview, coverage bars and direct guide/quiz shortcuts.
+- Actual VS Code sidebar appearance and controls require manual confirmation after restarting the Extension Development Host.
