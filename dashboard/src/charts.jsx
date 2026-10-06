@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { gapSummary, filename, layout, number, states, label } from './data';
 
 export function Treemap({ files, onSelect }) {
   const ref = useRef(null);
   const [size, setSize] = useState([900, 600]);
+  // Measure before the first paint so a narrow window never renders the 900px default.
+  useLayoutEffect(() => { const box = ref.current.getBoundingClientRect(); setSize([Math.max(1, box.width), Math.max(1, box.height)]); }, []);
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => setSize([Math.max(1, entry.contentRect.width), Math.max(1, entry.contentRect.height)]));
     observer.observe(ref.current); return () => observer.disconnect();
@@ -70,20 +72,22 @@ export function Lanes({ files, events, ticks, onSelect, axis }) {
 }
 
 export async function drawShare(canvas, data) {
-  await Promise.all([document.fonts.load('400 108px "IBM Plex Mono"'), document.fonts.load('400 26px "EB Garamond"'), document.fonts.load('400 66px "Cormorant Garamond"')]);
+  await Promise.all([document.fonts.load('400 108px "IBM Plex Mono"'), document.fonts.load('400 26px "EB Garamond"'), document.fonts.load('400 84px "EB Garamond"'), document.fonts.load('400 28px "Cormorant Garamond"')]);
   await document.fonts.ready;
   const css = getComputedStyle(document.documentElement);
   const color = token => css.getPropertyValue(`--${token}`).trim();
   const ctx = canvas.getContext('2d'); canvas.width = 1200; canvas.height = 630;
   ctx.fillStyle = color('ground'); ctx.fillRect(0, 0, 1200, 630);
+  const glow = ctx.createRadialGradient(1200, 0, 0, 1200, 0, 700); glow.addColorStop(0, 'rgba(255,138,43,.35)'); glow.addColorStop(1, 'rgba(255,138,43,0)'); ctx.fillStyle = glow; ctx.fillRect(0, 0, 1200, 630);
+  const sun = ctx.createRadialGradient(24, 38, 0, 24, 38, 15); sun.addColorStop(0, '#000'); sun.addColorStop(.3, '#000'); sun.addColorStop(.38, color('sun')); sun.addColorStop(.7, color('corona')); sun.addColorStop(1, 'rgba(255,138,43,0)'); ctx.fillStyle = sun; ctx.fillRect(0, 20, 50, 40);
   const text = (value, x, y, size, family = 'IBM Plex Mono', token = 'text') => {
     ctx.font = `${size}px "${family}"`; ctx.fillStyle = color(token); ctx.fillText(value, x, y);
   };
-  text('blindspot', 40, 48, 28, 'Cormorant Garamond'); text(data.workspace.split('/').at(-1), 760, 48, 14, 'IBM Plex Mono', 'text-dim');
+  text('blindspot', 56, 48, 28, 'Cormorant Garamond'); text(data.workspace.split('/').at(-1), 760, 48, 14, 'IBM Plex Mono', 'text-dim');
   ctx.strokeStyle = color('border'); ctx.beginPath(); ctx.moveTo(40, 75); ctx.lineTo(1160, 75); ctx.stroke();
   const gap = gapSummary(data);
   text('Seen', 40, 155, 26, 'EB Garamond');
-  text(gap.headline, 36, 275, gap.known && gap.gap ? 84 : 44, 'Cormorant Garamond');
+  ctx.save(); ctx.shadowColor = 'rgba(255,138,43,.6)'; ctx.shadowBlur = 28; text(gap.headline, 40, 275, gap.known && gap.gap ? 84 : 44, 'EB Garamond', gap.known && gap.gap ? 'corona' : 'text'); ctx.restore();
   text(gap.detail, 40, 337, 17, 'IBM Plex Mono', 'text-dim');
   if (gap.context) text(gap.context, 40, 385, 13);
   if (gap.percentage) text(gap.percentage, 40, 416, 14, 'IBM Plex Mono', 'text-dim');

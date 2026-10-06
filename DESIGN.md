@@ -50,6 +50,13 @@ The new desktop behavior has not yet been manually confirmed. We already have
 most of the infrastructure needed for a demo; further infrastructure is not the
 next milestone. Existing source, observations and quiz records remain intact.
 
+A per-file study guide (code units, unseen lines, last-changing commits) is part of file
+detail and a full page. It is deterministic and local. An optional Ollama button adds
+clearly labelled plain-English explanations from a model on the same machine.
+
+Quizzes are authored outside the app: the guide produces a prompt, any chat model writes the
+questions, and Blindspot validates and serves them. Keys are unverified and labelled so.
+
 ## The next step
 
 Run one short dashboard demonstration: record a file, leave

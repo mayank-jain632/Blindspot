@@ -1,19 +1,39 @@
 # Blindspot
 
-A small local tool that shows which files and source regions have recorded
-editor display evidence, helping developers choose what to revisit.
+**See how much of your code you have actually seen.** When an AI agent writes a lot of your
+project, it is easy to ship code you never looked at. Blindspot runs locally next to VS Code,
+records which lines were on screen, and shows what is still a blind spot, with a study guide
+for the parts you skipped. Display evidence is a starting point for awareness, not proof of
+reading or understanding. Nothing leaves your machine.
 
-**Current goal: a local presentation MVP.** The extension, local receiver,
-SQLite storage and React dashboard are implemented. Risk is the landing view;
-Map, Timeline, Insights and PNG export use the same local records. See [the short v1 design](DESIGN.md) and
-[the simplified roadmap](reports/roadmap-proposal.md).
+![Map: files sized by lines and colored by how much was on screen](docs/screenshots/map.png)
 
-The latest dashboard pass leads with unseen lines, uses plain-language states,
-counts distinct files in the weekly timeline, and keeps measurement details in
-one shared explanation. The next step is a short manual demo in VS Code: record
-one file, leave another untouched, inspect the dashboard, then check pause/resume
-and a visible split pane. See [the agent handoff](context_handoff.md) for current
-status and a ready-to-run checklist.
+| | |
+|---|---|
+| ![Risk queue](docs/screenshots/risk.png) | ![Study guide](docs/screenshots/guide.png) |
+| **Risk**: files ranked by unseen lines and recent commits | **Study guide**: unseen code units, last changes, optional local-model explanations |
+| ![Timeline](docs/screenshots/timeline.png) | ![Insights](docs/screenshots/insights.png) |
+| **Timeline**: files touched per week | **Insights**: quiz results, including confident wrong answers |
+
+## Try it in two minutes
+
+No VS Code needed. This builds an invented sample project with recorded activity:
+
+```sh
+npm --prefix dashboard ci && npm --prefix dashboard run build
+python3 scripts/seed_demo.py                      # writes sandbox/demo
+.venv/bin/python -B -m blindspot observer serve \
+  --workspace sandbox/demo/project --state-dir sandbox/demo/state --port 7777
+```
+
+Open <http://127.0.0.1:7777>. (Screenshots above come from this demo.) To record your own
+project, run the VS Code extension and point the receiver at it as described below.
+
+**Status: a local presentation MVP.** The VS Code extension, local receiver, SQLite storage and
+React dashboard work end to end (Risk, Map, Timeline, Insights, Share card, per-file study guide).
+Scope and decisions are in [the short v1 design](DESIGN.md) and
+[the simplified roadmap](reports/roadmap-proposal.md); [the agent handoff](context_handoff.md)
+has the run checklist.
 
 The localhost site is the main demo surface; VS Code supplies observations and
 recording controls. Display evidence does not prove reading or understanding.
@@ -40,6 +60,9 @@ npm --prefix dashboard run build
   --port 7777
 ```
 
+`scripts/demo.sh` does both steps. The built dashboard (`blindspot/observer/dashboard_dist/`) is
+not committed, so after `git pull` or a branch switch you must rebuild or the old UI keeps serving.
+
 Open **http://127.0.0.1:7777**. If an older receiver is running, stop it with
 Ctrl+C in its terminal before restarting. The extension reconnects using the
 same `connection.json`; its existing F5 launch already points to this state.
@@ -57,6 +80,30 @@ Review serves existing validated questions only. Add
 in the observer state directory. No matching unanswered quiz means the Review
 action is unavailable; quiz generation remains paused. Passing a current eligible
 sample reduces dashboard queue priority without changing display percentages.
+
+**Study guide.** File detail includes a guide for the selected file, built only from the
+code's structure (Python AST, patterns for other languages) and `git blame`. It lists each
+function, class or section with how many of its lines were never on screen, what it calls,
+and the commit that last changed it. **Unseen code** shows only units with gaps, largest
+first; **Whole file** lists everything in order. Open it from the **Guide** button on a Risk row, or
+"Open full guide" in file detail, for a full page with an outline, expandable code, Markdown copy and print. No model is used and the code never
+leaves the machine. It describes display evidence, not understanding.
+
+**Quizzes from any chat model.** On the full guide page, **Make a quiz** on a code unit gives you a
+prompt to paste into Claude, ChatGPT or any chat model. Paste its JSON reply back, and Blindspot
+checks the shape, the cited lines and the commit it is tied to, then opens the existing review
+screen. Quizzes are tied to committed code (commit first), cover 10 to 300 lines, and carry an
+answer key written by the model and not verified, so a question that looks wrong can be reported
+after you finish, which removes that quiz. Blindspot itself makes no model call for this.
+
+**Optional local explanations.** If [Ollama](https://ollama.com) is running, the full guide page
+gets an **Explain** button on each code unit and **Summarize this file**. Install a model once
+(for example `ollama pull qwen2.5-coder:7b`; any chat model works) and pick it in the sidebar.
+Only the selected unit's code, its unseen line ranges and its last commit message are sent, to
+a loopback endpoint only (`--ollama-url` rejects anything off this machine). Answers are cached
+in the observer state folder, labelled as generated and unverified, and the guide works
+the same without them. To go back to the version before this feature, check out the commit
+`f21ab92` (tagged `pre-ollama` where the tag could be pushed).
 
 The [data contract and design adaptations](reports/dashboard-contract.md) explain
 what is measured, inferred, and unavailable. Check the implementation with:

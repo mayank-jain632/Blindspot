@@ -21,6 +21,22 @@ Keep the project simple; quiz generation is paused.
   preceding work session. The current dashboard files may be uncommitted; do not
   reset or overwrite work.
 
+## Since the manual demo (branch `claude/ecstatic-darwin-rrrnol`)
+
+- Serif/sun theme (Cormorant + EB Garamond, amber/orange gap states) and a restyled quiz review.
+- Study guide per file: side panel plus a full page (`#guide?path=...`). Built from Python AST
+  or patterns plus `git blame` (`blindspot/observer/guide.py`); no model.
+- Optional Ollama explanations (`blindspot/observer/explain.py`): loopback endpoint only, cached in
+  the observer state folder, labelled as generated. Needs a manual try with a real model.
+  Rollback point before it: commit `f21ab92` (local tag `pre-ollama`; the tag could not be pushed).
+- `scripts/seed_demo.py` builds a repeatable sample project with activity and one quiz;
+  `scripts/demo.sh` rebuilds the dashboard (its build output is gitignored) and serves it.
+- Quiz generation, paste-in path (`blindspot/observer/quizgen.py`): guide card -> prompt -> paste reply -> quiz
+  in the existing review store; results screen has "report wrong" (removes the set). Rollback tag before
+  it: local `pre-quizgen`. Next planned step: let Ollama produce the same JSON automatically, plus a blind
+  second pass that re-answers each question to catch bad keys.
+- Fixed: the Map phone-width flake (the treemap rendered a 900px default before measuring).
+
 ## Next step: manual end-to-end demo
 
 From the repository root:

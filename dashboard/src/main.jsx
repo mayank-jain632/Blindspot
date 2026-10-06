@@ -8,7 +8,7 @@ import '@fontsource/eb-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-400.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-600.css';
-import { api, calendarAxis, directory, directories, filename, gapSummary, inRanges, label, missingLines, number, percent, states } from './data';
+import { api, calendarAxis, explainApi, directory, directories, filename, gapSummary, guideItems, guideMarkdown, GUIDE_STATES, inRanges, label, lineSpan, quizForUnit, missingLines, number, percent, rangeText, states } from './data';
 import { drawShare, Lanes, Treemap, Weekly } from './charts';
 import './style.css';
 
@@ -40,10 +40,10 @@ function Risk({ data, inspect }) {
     {files.length > 0 && <div className="table-scroll"><table className="risk-table mono"><thead><tr><th aria-label="Rank">#</th><th>File</th><th>Seen</th>{showMissing && <th title="Lines never on screen">Missing lines</th>}{showCommits && <th title="Commits touching this file in the last 90 days">Commits</th>}<th>Quiz sample</th><th aria-label="Action"></th></tr></thead>
       <tbody>{files.map(f => <tr key={f.path} className={f === files[0] ? 'first-row' : ''}>
         <td className="dim" title="Unseen lines and recent commits set the rank; passing a quiz lowers it.">{f.rank}</td><td><button className="file-link" onClick={() => inspect(f)}><FileName path={f.path} /></button></td>
-        <td><Chip state={f.state} tested={f.review.tested} /></td>{showMissing && <td className="numeric missing-lines">{missingLines(f) === null ? 'Unknown' : number(missingLines(f))}</td>}
+        <td><Chip state={f.state} tested={f.review.tested} /></td>{showMissing && <td className="numeric missing-lines">{missingLines(f) === null ? 'Unknown' : <>{number(missingLines(f))}<i className="gap-bar" style={{ '--w': `${Math.min(100, 100 * missingLines(f) / (f.line_count || 1))}%` }} /></>}</td>}
         {showCommits && <td className="numeric">{Number.isFinite(f.commits_90d) ? number(f.commits_90d) : 'Unknown'}</td>}
         <td>{f.review.confidently_wrong ? <span className="attention-text">Confidently wrong</span> : f.review.passing_samples ? <Chip state="sample_passed" /> : <span className="dim">{f.review.tested ? 'Tested' : f.review.stale_results ? 'Changed since quiz' : 'Never tested'}</span>}</td>
-        <td><ReviewAction file={f} inspect={inspect} /></td>
+        <td><div className="row-actions">{!f.current_uncertain && <a className="button-link" href={`#guide?path=${encodeURIComponent(f.path)}`}>Guide</a>}<ReviewAction file={f} inspect={inspect} /></div></td>
       </tr>)}</tbody></table></div>}
     {files.length > 0 && <p className="footnote">Hatched means never tested.</p>}
   </main>;
@@ -72,12 +72,74 @@ function Source({ text, file, start = 1, review = false }) {
     const n = start + i;
     const state = file ? file.current_uncertain ? 'uncertain' : inRanges(n, file.dwell_ranges) ? 'reported' : inRanges(n, file.brief_ranges) ? 'brief' : 'no_evidence' : null;
     const tested = file && inRanges(n, file.review.tested_ranges);
-    return <span key={n} className={`source-line ${state ? `state-${state} ${tested ? '' : 'untested'}` : ''}`} title={state ? `${label(state)} · ${tested ? 'Tested' : 'Never tested'}` : undefined}><span className="line-number">{n}</span><code>{line || ' '}</code></span>;
+    return <span key={n} data-line={n} className={`source-line ${state ? `state-${state} ${tested ? '' : 'untested'}` : ''}`} title={state ? `${label(state)} · ${tested ? 'Tested' : 'Never tested'}` : undefined}><span className="line-number">{n}</span><code>{line || ' '}</code></span>;
   })}</pre></div>;
+}
+
+const GUIDE_LABELS = { unseen: 'Never seen', partial: 'Partly seen', seen: 'Seen' };
+function jumpTo(root, line) {
+  const row = root?.querySelector(`[data-line="${line}"]`);
+  if (!row) return;
+  row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  row.classList.add('jump'); setTimeout(() => row.classList.remove('jump'), 1800);
+}
+function useGuide(file) {
+  const [guide, setGuide] = useState(null), [error, setError] = useState('');
+  useEffect(() => {
+    let cancelled = false; setGuide(null); setError('');
+    api(`/api/dashboard/guide?${new URLSearchParams({ path: file.path, hash: file.content_hash })}`).then(g => { if (!cancelled) setGuide(g); }).catch(e => { if (!cancelled) setError(e.message); });
+    return () => { cancelled = true; };
+  }, [file.path, file.content_hash, file.current_uncertain]);
+  return [guide, error];
+}
+function GuideItem({ item, jump, id, code }) {
+  const change = item.changes[0];
+  const first = item.unseen_ranges[0]?.[0] ?? item.start;
+  return <li className="guide-item" id={id}>
+    <div className="guide-head">{jump ? <button className="guide-name mono" onClick={() => jump(first)} title="Show these lines in the source">{item.name}</button> : <h3 className="guide-name mono">{item.name}</h3>}
+      <span className={`state-chip state-${GUIDE_STATES[item.state]}`}>{GUIDE_LABELS[item.state]}</span></div>
+    <div className="guide-lines mono">{lineSpan(item)} · {item.unseen === 0 ? `all ${item.lines} lines seen` : `${item.unseen} of ${item.lines} never on screen`}{item.unseen > 0 && item.unseen_ranges.length > 0 && <> ({rangeText(item.unseen_ranges)}{item.unseen_ranges.length === 8 ? ', …' : ''})</>}</div>
+    {item.doc && <p className="guide-doc">{item.doc}</p>}
+    {item.signature && item.kind !== 'block' && <code className="guide-signature">{item.signature}</code>}
+    {(item.calls?.length > 0 || item.raises?.length > 0 || item.branches > 0) && <div className="guide-meta mono">
+      {item.calls?.length > 0 && <span>Calls {item.calls.join(', ')}</span>}
+      {item.raises?.length > 0 && <span>Raises {item.raises.join(', ')}</span>}
+      {item.branches > 0 && <span>{item.branches} {item.branches === 1 ? 'branch' : 'branches'}</span>}</div>}
+    {change && <div className="guide-change mono dim">Last changed {change.date || 'since the last commit'}: {change.summary}{item.changes.length > 1 && ` (+${item.changes.length - 1} more)`}</div>}
+    {code}
+  </li>;
+}
+function StudyGuide({ guide, error, root, close }) {
+  const [scope, setScope] = useState('unseen'), [all, setAll] = useState(false), [copied, setCopied] = useState(false);
+  if (error) return <section className="study-guide"><h3>Study guide</h3><p className="notice">{error}</p></section>;
+  if (!guide) return <section className="study-guide"><h3>Study guide</h3><p className="dim">Loading guide.</p></section>;
+  const items = guideItems(guide, scope), shown = all ? items : items.slice(0, 8);
+  const jump = line => jumpTo(root.current, line);
+  async function copy() {
+    try { await navigator.clipboard.writeText(guideMarkdown(guide, scope)); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard unavailable */ }
+  }
+  return <section className="study-guide">
+    <div className="guide-title"><h3>Study guide</h3>
+      <div className="guide-toggle" role="group" aria-label="Guide scope">
+        <button aria-pressed={scope === 'unseen'} onClick={() => { setScope('unseen'); setAll(false); }}>Unseen code</button>
+        <button aria-pressed={scope === 'whole'} onClick={() => { setScope('whole'); setAll(false); }}>Whole file</button></div></div>
+    <button className="guide-open" onClick={() => { close(); window.location.hash = `guide?path=${encodeURIComponent(guide.path)}`; }}>Open full guide</button>
+    <p className="guide-note">Built from the code’s structure and Git history, with no AI. Anything marked Generated comes from a local model and may be wrong. On screen is not the same as understood.</p>
+    <p className="guide-summary mono">{guide.unseen_lines === 0 ? 'Every line of this file has been on screen.' : `${number(guide.unseen_lines)} lines never on screen · ${guide.overview.units_with_unseen} of ${guide.overview.units} code units`}</p>
+    {guide.overview.doc && <p className="guide-doc">{guide.overview.doc}</p>}
+    {guide.overview.imports.length > 0 && <p className="guide-meta mono dim">Uses {guide.overview.imports.join(', ')}</p>}
+    {scope === 'unseen' && guide.recent_changes.length > 0 && <div className="guide-changes"><h4>Changes you haven’t seen</h4><ul>{guide.recent_changes.slice(0, 5).map(c => <li key={`${c.commit}${c.date}${c.summary}`} className="mono"><span className="dim">{c.date || 'uncommitted'}</span> {c.summary} <span className="dim">· {c.unseen} unseen {c.unseen === 1 ? 'line' : 'lines'}</span></li>)}</ul></div>}
+    {items.length === 0 ? <p className="dim">{guide.items.length === 0 ? 'No code units found in this file.' : 'Every code unit has had all of its lines on screen.'}</p>
+      : <ol className="guide-list">{shown.map(i => <GuideItem key={`${i.name}:${i.start}`} item={i} jump={jump} />)}</ol>}
+    {items.length > 8 && <button className="guide-more" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `Show all ${items.length}`}</button>}
+    {guide.notes.map(n => <p key={n} className="guide-meta dim">{n}</p>)}
+    {items.length > 0 && <button className="guide-copy" onClick={copy}>{copied ? 'Copied' : 'Copy as Markdown'}</button>}
+  </section>;
 }
 
 function FileDetail({ file, data, close }) {
   const ref = useRef(null), [source, setSource] = useState(null), [error, setError] = useState('');
+  const [guide, guideError] = useGuide(file);
   useEffect(() => { ref.current.showModal(); }, []);
   useEffect(() => {
     let cancelled = false; setSource(null); setError('');
@@ -91,6 +153,7 @@ function FileDetail({ file, data, close }) {
     <div className="detail-meta mono dim">{number(file.line_count)} lines · {file.origin}</div><div className="detail-state"><Chip state={file.state} tested={file.review.tested} />{file.review.passing_samples > 0 && <Chip state="sample_passed" />}</div>
     <section className="record"><h3>This file</h3><ul>{file.evidence.map((e, i) => <li key={i}><span className={`evidence-dot state-${e.state}`} /><div><p className="mono">{e.text}</p></div></li>)}</ul>
       </section>
+    <StudyGuide guide={guide} error={guideError} root={ref} close={close} />
     <section className="detail-source"><h3>The source</h3>{error ? <p className="notice">{error}</p> : current ? <Source text={source.text} file={file} /> : <p className="dim">Loading file.</p>}</section>
     <div className="detail-actions"><button disabled={!file.review.available.length || !current} onClick={() => startReview(file)}>Review this file</button><a href={editor}>Open in editor</a></div>
     {!file.review.available.length && <p className="footnote">No quiz ready for this file. Choose another file in Risk.</p>}
@@ -166,14 +229,163 @@ function Review({ params }) {
   // This screen never mounts the dashboard shell, state chips, queue or scores.
   return <div className="review-screen"><header className="review-header"><a href="#risk">← Exit review</a>{attempt && <span className="mono">{attempt.target.path}</span>}{question && <div className="review-progress mono"><span>Question {index + 1} of {attempt.questions.length}</span><span className="progress-dots" aria-hidden="true">{attempt.questions.map((q, i) => <i key={q.id} className={i === index ? 'current' : q.submitted ? 'submitted' : ''} />)}</span></div>}</header>
     {error && <p role="alert" className="notice">{error}</p>}
-    {result ? <main className="review-results"><span className="eyebrow">Completed sample</span><h1>Quiz results</h1><p className="mono">{result.questions.filter(q => q.correct).length} / {result.questions.length} answers correct</p><p>{result.current_sample_pass ? 'Quiz passed. Return to Risk to see the updated rank.' : 'Review the explanations, then choose another file.'}</p>
-      {result.questions.map((q, i) => <section key={q.question_id} className="answer-record"><span className="eyebrow">Question {i + 1} · {q.confidence} · {q.correct ? 'Matches key' : 'Does not match key'}</span><h2>{q.prompt}</h2><p>Your answer: {q.options[q.chosen_index]}</p><p>Answer key: {q.options[q.correct_index]}</p><p>{q.explanation}</p><p className="mono dim">{q.rationale.path}:{q.rationale.start_line}–{q.rationale.end_line}</p><p>{q.rationale.reason}</p></section>)}<a className="button-link" href="#risk">Return to review queue</a></main>
+    {result ? <main className="review-results"><span className="eyebrow">Completed sample</span><h1>Quiz results</h1><p className="guide-meta dim">The answer key was written by a model and is not verified.</p><p className="mono">{result.questions.filter(q => q.correct).length} / {result.questions.length} answers correct</p><p>{result.current_sample_pass ? 'Quiz passed. Return to Risk to see the updated rank.' : 'Review the explanations, then choose another file.'}</p>
+      {result.questions.map((q, i) => <section key={q.question_id} className={`answer-record ${q.correct ? 'matches' : 'differs'}`}><span className="eyebrow">Question {i + 1} · {q.confidence} · {q.correct ? 'Matches key' : 'Does not match key'}</span><h2>{q.prompt}</h2><p>Your answer: {q.options[q.chosen_index]}</p><p>Answer key: {q.options[q.correct_index]}</p><p>{q.explanation}</p><p className="mono dim">{q.rationale.path}:{q.rationale.start_line}–{q.rationale.end_line}</p><p>{q.rationale.reason}</p><ReportQuestion attemptId={result.attempt_id} questionId={q.question_id} /></section>)}<a className="button-link" href="#risk">Return to review queue</a></main>
       : attempt ? <main className="review-layout"><section className="review-code"><div className="source-caption mono">{attempt.target.path} · lines {attempt.target.start_line}–{attempt.target.end_line}</div><Source text={attempt.target.code} start={attempt.target.start_line} review />{attempt.context.map(c => <details key={`${c.path}:${c.start_line}`}><summary className="mono">Context · {c.path}:{c.start_line}–{c.end_line}</summary><Source text={c.code} start={c.start_line} review /></details>)}</section>
         <section className="question-panel">{question ? <><span className="eyebrow">Question</span><h1>{question.prompt}</h1><div className="options">{question.options.map((option, i) => <button key={i} aria-pressed={chosen === i} onClick={() => setChosen(i)} disabled={busy}><span className="option-letter">{String.fromCharCode(65 + i)}</span><span>{option}</span></button>)}</div><div className="confidence"><span className="eyebrow">How sure are you</span><div>{['guessed', 'shaky', 'solid'].map(c => <button key={c} disabled={chosen === null || busy} onClick={() => submit(c)}>{c[0].toUpperCase() + c.slice(1)}</button>)}</div><p>Choose your confidence to submit the answer.</p></div></> : <><h1>Answers recorded</h1><button disabled={busy} onClick={finish}>Finish review</button></>}</section></main> : !error && <Empty title="Loading review">Only source and questions are shown while answering.</Empty>}
   </div>;
 }
 
-function DashboardApp({ page }) {
+function ExplainBox({ label, note, run }) {
+  if (!note) return <button className="guide-explain-button" onClick={() => run(false)}>{label}</button>;
+  if (note.loading) return <p className="guide-explain" role="status">Thinking. The first answer can take a while if the model has to load.</p>;
+  if (note.error) return <div className="guide-explain"><p className="notice" role="alert">{note.error}</p><button onClick={() => run(false)}>Try again</button></div>;
+  return <div className="guide-explain">
+    <span className="eyebrow">Generated by {note.model} on this machine{note.cached ? ' (saved)' : ''}. Unverified, may be wrong.</span>
+    <p className="guide-explain-text">{note.text}</p>
+    <button onClick={() => run(true)}>Regenerate</button></div>;
+}
+
+function QuizBox({ file, item }) {
+  const [phase, setPhase] = useState('idle'), [made, setMade] = useState(null), [reply, setReply] = useState(''), [error, setError] = useState(''), [done, setDone] = useState(null), [copied, setCopied] = useState(false);
+  const offer = quizForUnit(file, item);
+  const request = { path: file.path, hash: file.content_hash, start: item.start, end: item.end };
+  const start = id => { window.location.hash = `review?set_id=${encodeURIComponent(id)}`; };
+  async function open() {
+    setPhase('loading'); setError('');
+    try { setMade(await explainApi('/api/dashboard/quiz/prompt', request)); setPhase('prompt'); } catch (e) { setError(e.message); setPhase('idle'); }
+  }
+  async function copy() {
+    try { await navigator.clipboard.writeText(made.prompt); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { setError('Copy was blocked. Open “Show prompt” and copy it by hand.'); }
+  }
+  async function create() {
+    setPhase('creating'); setError('');
+    try { setDone(await explainApi('/api/dashboard/quiz/import', { ...request, reply })); setPhase('done'); } catch (e) { setError(e.message); setPhase('prompt'); }
+  }
+  if (phase === 'done') return <div className="quiz-maker"><p><strong>Quiz ready.</strong> {done.question_count} questions{done.duplicate ? ' (you already had this one)' : ''}.</p>
+    {done.warnings.map(w => <p key={w} className="guide-meta">{w}</p>)}
+    <p className="guide-meta dim">{done.key_quality} If a question looks wrong afterwards, report it and the quiz is removed.</p>
+    <button className="guide-explain-button" onClick={() => start(done.set_id)}>Start quiz</button></div>;
+  if (phase === 'idle' || phase === 'loading') return <>
+    {offer && <button className="guide-explain-button" onClick={() => start(offer.set_id)}>Take quiz · {offer.question_count} questions</button>}
+    <button className="guide-quiz-button" disabled={phase === 'loading'} onClick={open}>{phase === 'loading' ? 'Preparing' : offer ? 'Make another quiz' : 'Make a quiz'}</button>
+    {error && <p className="notice" role="alert">{error}</p>}</>;
+  return <div className="quiz-maker">
+    <span className="eyebrow">Quiz for lines {made.start}–{made.end} · {made.question_count} questions</span>
+    {made.note && <p className="guide-meta dim">{made.note}</p>}
+    <ol className="quiz-steps">
+      <li>Copy the prompt. <button onClick={copy}>{copied ? 'Copied' : 'Copy prompt'}</button> <details><summary>Show prompt</summary><textarea readOnly value={made.prompt} rows={8} aria-label="Prompt" /></details></li>
+      <li>Paste it into Claude, ChatGPT or any chat model.</li>
+      <li>Paste the model’s reply here.<textarea value={reply} onChange={e => setReply(e.target.value)} rows={6} placeholder="Paste the reply here" aria-label="Model reply" /></li></ol>
+    {error && <p className="notice" role="alert">{error}</p>}
+    <div><button className="guide-explain-button" disabled={!reply.trim() || phase === 'creating'} onClick={create}>{phase === 'creating' ? 'Checking' : 'Create quiz'}</button><button onClick={() => { setPhase('idle'); setError(''); }}>Cancel</button></div>
+    <p className="guide-meta dim">Nothing is sent anywhere by Blindspot. The answer key comes from the model you paste from and is not verified.</p></div>;
+}
+
+function ReportQuestion({ attemptId, questionId }) {
+  const [step, setStep] = useState('idle'), [error, setError] = useState('');
+  async function remove() {
+    try { await explainApi('/api/dashboard/review/report', { attempt_id: attemptId, question_id: questionId }); setStep('done'); } catch (e) { setError(e.message); setStep('idle'); }
+  }
+  if (step === 'done') return <p className="guide-meta dim">Quiz removed. It no longer counts toward your results.</p>;
+  return <div className="report-question">{error && <p className="notice" role="alert">{error}</p>}
+    {step === 'idle' ? <button onClick={() => setStep('confirm')}>This answer key looks wrong</button>
+      : <><span className="guide-meta">Remove this whole quiz? Its results stop counting.</span> <button onClick={remove}>Remove quiz</button> <button onClick={() => setStep('idle')}>Keep it</button></>}</div>;
+}
+
+const CODE_CAP = 120;
+function GuidePage({ data, path }) {
+  const file = data.files.find(f => f.path === path);
+  if (!file) return <main className="standard-page"><Empty title="File not found">Choose a file in Risk to open its guide.</Empty><a className="button-link" href="#risk">Back to Risk</a></main>;
+  return <GuideBody key={file.path} file={file} data={data} />;
+}
+function GuideBody({ file, data }) {
+  const [guide, error] = useGuide(file);
+  const [scope, setScope] = useState('unseen'), [open, setOpen] = useState(() => new Set()), [source, setSource] = useState(null), [copied, setCopied] = useState(false);
+  const [local, setLocal] = useState(null), [model, setModel] = useState(() => { try { return localStorage.getItem('blindspot.model') || ''; } catch { return ''; } }), [notes, setNotes] = useState({});
+  useEffect(() => {
+    let cancelled = false;
+    explainApi('/api/dashboard/explain/status').then(st => { if (!cancelled) setLocal(st); }).catch(() => { if (!cancelled) setLocal({ available: false, models: [], error: 'Cannot reach the local server.' }); });
+    return () => { cancelled = true; };
+  }, []);
+  const chosen = local?.models.includes(model) ? model : local?.default || '';
+  function pick(name) { setModel(name); try { localStorage.setItem('blindspot.model', name); } catch { /* storage unavailable */ } }
+  async function explain(unit, regenerate = false) {
+    const id = unit ? `${unit.start}-${unit.end}` : 'file';
+    setNotes(n => ({ ...n, [id]: { loading: true } }));
+    try {
+      const result = await explainApi('/api/dashboard/explain', { path: file.path, hash: file.content_hash, model: chosen, regenerate, ...(unit ? { start: unit.start, end: unit.end } : {}) });
+      setNotes(n => ({ ...n, [id]: result }));
+    } catch (e) { setNotes(n => ({ ...n, [id]: { error: e.message } })); }
+  }
+  useEffect(() => {
+    let cancelled = false;
+    api(`/api/dashboard/source?${new URLSearchParams({ path: file.path, hash: file.content_hash })}`).then(s => { if (!cancelled) setSource(s); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [file.path, file.content_hash]);
+  const editor = `vscode://file${encodeURI(`${data.workspace}/${file.path}`).replaceAll('#', '%23').replaceAll('?', '%3F')}`;
+  if (error) return <main className="standard-page"><p className="notice">{error}</p><a className="button-link" href="#risk">Back to Risk</a></main>;
+  if (!guide) return <main className="standard-page"><Empty title="Loading guide">Reading the file’s structure and Git history.</Empty></main>;
+  const items = guideItems(guide, scope), key = i => `u${i.start}-${i.end}-${i.name}`;
+  const toggle = i => setOpen(prev => { const next = new Set(prev); next.has(key(i)) ? next.delete(key(i)) : next.add(key(i)); return next; });
+  function goto(i) {
+    setOpen(prev => new Set(prev).add(key(i)));
+    setTimeout(() => document.getElementById(key(i))?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 0);
+  }
+  async function copy() {
+    try { await navigator.clipboard.writeText(guideMarkdown(guide, scope, Object.fromEntries(Object.entries(notes).filter(([, v]) => v.text)))); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard unavailable */ }
+  }
+  const lines = source?.text.split('\n');
+  const codeFor = i => {
+    if (!open.has(key(i))) return <button className="guide-code-toggle" onClick={() => toggle(i)} aria-expanded="false">Show code</button>;
+    const end = Math.min(i.end, i.start + CODE_CAP - 1);
+    return <div className="guide-code"><button className="guide-code-toggle" onClick={() => toggle(i)} aria-expanded="true">Hide code</button>
+      {lines ? <><Source text={lines.slice(i.start - 1, end).join('\n')} file={file} start={i.start} />{end < i.end && <p className="guide-meta dim">Showing the first {CODE_CAP} lines. Open the file for the rest.</p>}</> : <p className="dim">Loading code.</p>}</div>;
+  };
+  return <main className="guide-layout">
+    <aside className="guide-sidebar">
+      <div className="rollup">
+        <span className="eyebrow">Study guide</span>
+        <h1 className="mono guide-file">{filename(file.path)}</h1>
+        <p className="mono dim">{directory(file.path)}</p>
+        <div className={`headline ${guide.unseen_lines === 0 ? 'headline-words' : ''}`}>{guide.unseen_lines === 0 ? 'All seen' : `${number(guide.unseen_lines)} lines`}</div>
+        <p>{guide.unseen_lines === 0 ? 'Every line has been on screen.' : `never on screen, across ${guide.overview.units_with_unseen} of ${guide.overview.units} code units`}</p>
+      </div>
+      <div className="rollup">
+        <div className="guide-toggle" role="group" aria-label="Guide scope">
+          <button aria-pressed={scope === 'unseen'} onClick={() => setScope('unseen')}>Unseen code</button>
+          <button aria-pressed={scope === 'whole'} onClick={() => setScope('whole')}>Whole file</button></div>
+        <span className="eyebrow outline-title">{scope === 'unseen' ? 'Read first' : 'In file order'}</span>
+        <ol className="guide-outline">{items.map(i => <li key={key(i)}><button onClick={() => goto(i)}><span className="mono">{i.name}</span><small className="mono">{i.unseen === 0 ? 'seen' : `${i.unseen} of ${i.lines} unseen`}</small><i className="gap-bar" style={{ '--w': `${100 * i.unseen / i.lines}%` }} /></button></li>)}</ol>
+        {items.length === 0 && <p className="dim">{guide.items.length === 0 ? 'No code units found.' : 'Nothing left unseen.'}</p>}
+      </div>
+      <div className="rollup local-model">
+        <span className="eyebrow">Local model</span>
+        {!local ? <p className="dim">Checking for Ollama.</p> : local.available
+          ? <><label className="select-label">Model<select value={chosen} onChange={e => pick(e.target.value)} aria-label="Local model">{local.models.map(m => <option key={m}>{m}</option>)}</select></label>
+              <p className="dim">Optional explanations run on this machine through Ollama. Only the selected code unit is sent.</p></>
+          : <p className="dim">{local.error} The guide works without it.</p>}
+      </div>
+      <div className="rollup guide-actions">
+        <button onClick={copy} disabled={items.length === 0}>{copied ? 'Copied' : 'Copy as Markdown'}</button>
+        <button onClick={() => window.print()}>Print</button>
+        <a className="button-link" href={editor}>Open in editor</a>
+        <a className="button-link" href="#risk">Back to Risk</a>
+      </div>
+    </aside>
+    <div className="guide-main">
+      <p className="guide-note">Built from the code’s structure and Git history, with no AI. Anything marked Generated comes from a local model and may be wrong. On screen is not the same as understood.</p>
+      {guide.overview.doc && <p className="guide-doc">{guide.overview.doc}</p>}
+      {guide.overview.imports.length > 0 && <p className="guide-meta mono dim">Uses {guide.overview.imports.join(', ')}</p>}
+      {local?.available && <ExplainBox label="Summarize this file" note={notes.file} run={regenerate => explain(null, regenerate)} />}
+      {scope === 'unseen' && guide.recent_changes.length > 0 && <div className="guide-changes"><h2>Changes you haven’t seen</h2><ul>{guide.recent_changes.map(c => <li key={`${c.commit}${c.date}${c.summary}`} className="mono"><span className="dim">{c.date || 'uncommitted'}</span> {c.summary} <span className="dim">· {c.unseen} unseen {c.unseen === 1 ? 'line' : 'lines'}</span></li>)}</ul></div>}
+      <ol className="guide-list">{items.map(i => <GuideItem key={key(i)} id={key(i)} item={i} code={<><QuizBox file={file} item={i} />{local?.available && <ExplainBox label="Explain" note={notes[`${i.start}-${i.end}`]} run={regenerate => explain(i, regenerate)} />}{codeFor(i)}</>} />)}</ol>
+      {guide.notes.map(n => <p key={n} className="guide-meta dim">{n}</p>)}
+    </div>
+  </main>;
+}
+
+function DashboardApp({ page, query }) {
   const [data, setData] = useState(null), [error, setError] = useState(''), [selected, setSelected] = useState(null), [busy, setBusy] = useState(false);
   async function refresh() {
     setBusy(true); try { const next = await api('/api/dashboard'); setData(next); setError(''); } catch (e) { setError(e.message); } finally { setBusy(false); }
@@ -187,7 +399,7 @@ function DashboardApp({ page }) {
     {!data ? <Empty title={error ? 'Receiver unavailable' : 'Loading files'}>Start the local server, then refresh.</Empty> : <>
       <div className="connection-strip mono" title="Extension connection"><span>{data.health.sessions.some(s => s.connection_state === 'connected' && s.status === 'recording') ? 'Recording connected' : 'No active recording'}</span><span>Updated {new Date(data.generated_at).toLocaleTimeString()}</span><span>Local only</span></div>
       {data.review.error && <p className="notice">Cannot load quizzes. Check the quiz folder and refresh.</p>}
-      {page === 'map' ? <MapView data={data} inspect={inspect} /> : page === 'timeline' ? <Timeline data={data} inspect={inspect} /> : page === 'insights' ? <Insights data={data} /> : page === 'share' ? <Share data={data} /> : <Risk data={data} inspect={inspect} />}
+      {page === 'guide' ? <GuidePage data={data} path={new URLSearchParams(query).get('path') || ''} /> : page === 'map' ? <MapView data={data} inspect={inspect} /> : page === 'timeline' ? <Timeline data={data} inspect={inspect} /> : page === 'insights' ? <Insights data={data} /> : page === 'share' ? <Share data={data} /> : <Risk data={data} inspect={inspect} />}
       {data.inventory_diagnostics.length > 0 && <p className="notice">Some files could not be loaded. Check the project folder and refresh.</p>}
       {file && <FileDetail key={file.path} file={file} data={data} close={() => setSelected(null)} />}
     </>}
@@ -218,7 +430,7 @@ function Router() {
   const [hash, setHash] = useState(window.location.hash);
   useEffect(() => { const change = () => setHash(window.location.hash); window.addEventListener('hashchange', change); return () => window.removeEventListener('hashchange', change); }, []);
   const [page, query = ''] = hash.replace(/^#/, '').split('?');
-  return <>{page === 'review' ? <Review key={hash} params={new URLSearchParams(query)} /> : <DashboardApp page={page || 'risk'} />}<Methodology /></>;
+  return <>{page === 'review' ? <Review key={hash} params={new URLSearchParams(query)} /> : <DashboardApp page={page || 'risk'} query={query} />}<Methodology /></>;
 }
 
 createRoot(document.getElementById('root')).render(<Router />);

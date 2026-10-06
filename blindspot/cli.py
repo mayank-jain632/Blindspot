@@ -53,6 +53,8 @@ def parser() -> argparse.ArgumentParser:
     receiver.add_argument("--state-dir", type=Path, required=True)
     receiver.add_argument("--port", type=int, default=7777)
     receiver.add_argument("--review-state-dir", type=Path, help="Existing quiz state directory; defaults to observer state")
+    receiver.add_argument("--ollama-url", default="http://127.0.0.1:11434", help="Local Ollama endpoint for optional explanations (must be on this machine)")
+    receiver.add_argument("--ollama-model", help="Preferred Ollama model; defaults to an installed coder model")
     overview = actions.add_parser("overview")
     overview.add_argument("--workspace", type=Path, required=True)
     overview.add_argument("--state-dir", type=Path, required=True)
@@ -74,7 +76,8 @@ def main(argv: list[str] | None = None) -> int:
                 from .observer.server import serve
                 if not 0 <= args.port <= 65535:
                     raise ValueError("Port must be between 0 and 65535")
-                serve(args.state_dir, args.workspace, args.port, args.review_state_dir)
+                from .observer.explain import Ollama
+                serve(args.state_dir, args.workspace, args.port, args.review_state_dir, Ollama(args.ollama_url, args.ollama_model))
             else:
                 # Report should never initialize a missing journal directory.
                 from .observer.sqlite_store import SQLiteStore

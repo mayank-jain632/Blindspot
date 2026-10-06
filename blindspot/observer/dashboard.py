@@ -10,9 +10,14 @@ import subprocess
 
 from ..review import ReviewError
 from ..review.service import ReviewService
-from ..review.targets import binding
+from ..review.service import validate_questions
+from ..review.targets import binding, export_target, text_at
 from ..scan.repo import RepoError, Repository
-from .visibility import current_files, current_source
+from .explain import ExplanationCache, Ollama, file_prompt, unit_prompt, valid_model, SYSTEM
+from .guide import blame, build as build_guide
+from .quizgen import QuizError, build_prompt, choose_range, grounding_warnings, normalize, question_count
+from .store import digest
+from .visibility import current_files, current_source, file_stats
 
 STATES = {
     "current document state uncertain": "uncertain",
@@ -64,8 +69,10 @@ def priority(file):
 
 
 class Dashboard:
-    def __init__(self, store, review_directory: Path | None = None):
+    def __init__(self, store, review_directory: Path | None = None, ollama: Ollama | None = None):
         self.store = store
+        self.ollama = ollama or Ollama()
+        self.explanations = ExplanationCache(store.directory)
         self.reviews = ReviewService(review_directory or store.directory)
         self.reviews.store.guard(store.workspace)
 
@@ -185,6 +192,104 @@ class Dashboard:
 
     def source(self, path, expected_hash):
         return current_source(self.store, path, expected_hash)
+
+    def _prepare_guide(self, path, expected_hash):
+        with self.store.lock:
+            files, _ = current_files(self.store)
+            file = next((f for f in files if f["path"] == path), None)
+            if not file: raise ValueError("File is outside the eligible current inventory")
+            if file["current_uncertain"]: raise ValueError("Current document state is uncertain; resume recording and refresh")
+            if file["content_hash"] != expected_hash: raise ValueError("Source changed since the overview; refresh before opening the guide")
+            stats = file_stats(self.store, file)
+            text, origin = file["text"], file["origin"]
+        # Blame reads the saved file, so it only applies when the text came from disk.
+        history = blame(self.store.workspace, path, len(text.split("\n"))) if origin == "disk" else None
+        return text, build_guide(text, path, stats["reported_ranges"], history)
+
+    def guide(self, path, expected_hash):
+        """Study guide for one file; structure and Git history only, no model."""
+        return self._prepare_guide(path, expected_hash)[1]
+
+    def explain_status(self):
+        return self.ollama.status()
+
+    def explain(self, body):
+        """Plain-English text from the local model for one code unit or the whole file."""
+        if not isinstance(body, dict) or not set(body) <= {"path", "hash", "start", "end", "model", "regenerate"}:
+            raise ValueError("Explain requires a path, hash, optional unit range, model and regenerate flag.")
+        path, content_hash, start, end = body.get("path"), body.get("hash"), body.get("start"), body.get("end")
+        if (start is None) != (end is None) or any(v is not None and type(v) is not int for v in (start, end)):
+            raise ValueError("A unit needs integer start and end lines.")
+        text, guide = self._prepare_guide(path, content_hash)
+        item = None
+        if start is not None:
+            item = next((i for i in guide["items"] if i["start"] == start and i["end"] == end), None)
+            if not item: raise ValueError("Unknown code unit; refresh and try again.")
+        model = body.get("model") or self.ollama.status()["default"]
+        valid_model(model)
+        key = self.explanations.key(model, path, content_hash, start, end)
+        cached = None if body.get("regenerate") else self.explanations.get(key)
+        if cached: return {**cached, "cached": True}
+        prompt = unit_prompt(path, item, text.split("\n")) if item else file_prompt(guide)
+        reply = self.ollama.chat(model, SYSTEM, prompt)
+        result = {"text": reply, "model": model, "scope": "unit" if item else "file", "generated_at": datetime.now(timezone.utc).isoformat()}
+        self.explanations.put(key, result)
+        return {**result, "cached": False}
+
+    def _quiz_target(self, body, allowed):
+        if not isinstance(body, dict) or not set(body) <= allowed | {"path", "hash", "start", "end"} or any(
+                type(body.get(k)) is not int for k in ("start", "end")):
+            raise ValueError("A quiz needs a path, hash and the unit's start and end lines.")
+        path = body.get("path")
+        text, guide = self._prepare_guide(path, body.get("hash"))
+        item = next((i for i in guide["items"] if i["start"] == body["start"] and i["end"] == body["end"]), None)
+        if not item: raise ValueError("Unknown code unit; refresh and try again.")
+        try:
+            repo = Repository(self.store.workspace)
+            committed = text_at(repo, repo.head, path)
+        except (ReviewError, RepoError) as exc:
+            if "absent at this revision" in str(exc):
+                raise QuizError("This file is not committed yet. Quizzes are tied to committed code, so commit it and refresh.") from None
+            raise QuizError(str(exc)) from None
+        if digest(committed) != digest(text):
+            raise QuizError("This file has uncommitted changes. Quizzes are tied to committed code, so commit them and refresh.")
+        start, end, note = choose_range(text, item)
+        try: manifest = export_target(self.store.workspace / path, start, end, name=f"guide:{item['name']}"[:200])
+        except (ReviewError, RepoError) as exc: raise QuizError(str(exc)) from None
+        return manifest, item, start, end, note
+
+    def quiz_prompt(self, body):
+        """A prompt the user can paste into any chat model to write a quiz for one unit."""
+        manifest, item, start, end, note = self._quiz_target(body, set())
+        count = question_count(start, end)
+        return {"prompt": build_prompt(manifest["target"]["path"], start, end, manifest["target"]["code"], item["unseen_ranges"], count),
+                "start": start, "end": end, "question_count": count, "note": note}
+
+    def quiz_import(self, body):
+        """Check a model's pasted reply and store it as a quiz for the same unit."""
+        manifest, item, start, end, note = self._quiz_target(body, {"reply"})
+        path = manifest["target"]["path"]
+        questions = normalize(body.get("reply"), path, start, end)
+        try: validate_questions(questions, manifest)
+        except ReviewError as exc: raise QuizError(str(exc)) from None
+        result = self.reviews.import_quiz({"schema_version": 1, "generator": "pasted from an external chat model",
+                                           "manifest": manifest, "questions": questions}, datetime.now(timezone.utc))
+        if result["status"] != "validated": raise QuizError(result.get("reason") or "The quiz was rejected.")
+        return {"set_id": result["set_id"], "duplicate": bool(result.get("duplicate")), "question_count": len(questions),
+                "warnings": grounding_warnings(questions, manifest["target"]["code"]),
+                "key_quality": "Answer keys come from the model that wrote the quiz and are not verified."}
+
+    def review_report(self, body):
+        """Remove a quiz whose answer key the reviewer believes is wrong; history is kept."""
+        if not isinstance(body, dict) or set(body) != {"attempt_id", "question_id"}: raise ReviewError("Report requires an attempt and question ID.")
+        data = self.reviews.store.read()
+        attempt = data["attempts"].get(body["attempt_id"])
+        if not attempt or not attempt["completed_at"]: raise ReviewError("Finish the quiz before reporting a question.")
+        quiz = data["sets"][attempt["set_id"]]
+        number = next((n for n, q in enumerate(quiz["questions"], 1) if q["id"] == body["question_id"]), None)
+        if number is None: raise ReviewError("Unknown question ID.")
+        prompt = quiz["questions"][number - 1]["prompt"][:80]
+        return self.reviews.reject(quiz["id"], f"Reported wrong after review: question {number} ({prompt})", datetime.now(timezone.utc))
 
     def _require_binding(self, set_id):
         data = self.reviews.store.read()
