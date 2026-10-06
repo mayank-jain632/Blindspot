@@ -11,7 +11,7 @@ Keep the project simple; quiz generation is paused.
 - VS Code collector, localhost receiver, SQLite storage, and React dashboard are
   implemented.
 - Dashboard: Map landing view, file detail/source shading, existing quiz review,
-  directory Map, Timeline, Insights, and PNG Share card.
+  directory Map, Learning, Insights, and PNG Share card.
 - Latest UI pass: pure black background; percentage-not-seen headline; concise copy and
   plain-language states; optional empty columns/panels hidden; Timeline counts
   distinct files per week; monospace metrics; shared “How this is measured” panel.
@@ -91,3 +91,7 @@ Everything is local; no analytics or telemetry are intended.
 - Timeline now uses animated weekly line series: distinct files with visibility events vs distinct files with filesystem events. These are not human/agent authorship. Reduced-motion disables the reveal. Python receiver must restart for new weekly fields.
 - Learning returns to compact two-column cards with a small overview, coverage bars and direct guide/quiz shortcuts.
 - Actual VS Code sidebar appearance and controls require manual confirmation after restarting the Extension Development Host.
+
+## Timeline removed (2026-10-06)
+
+User approved removing Timeline from desktop/mobile navigation. Its dashboard view is removed; old #timeline links redirect to Map. Activity storage and backend data remain intact. A future history view should track the unseen backlog rather than event volume.

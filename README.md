@@ -12,8 +12,8 @@ reading or understanding. Nothing leaves your machine.
 |---|---|
 | ![Risk queue](docs/screenshots/risk.png) | ![Study guide](docs/screenshots/guide.png) |
 | **Risk**: files ranked by unseen lines and recent commits | **Study guide**: unseen code units, last changes, optional local-model explanations |
-| ![Timeline](docs/screenshots/timeline.png) | ![Insights](docs/screenshots/insights.png) |
-| **Timeline**: files touched per week | **Insights**: quiz results, including confident wrong answers |
+| ![Share card](docs/screenshots/share.png) | ![Insights](docs/screenshots/insights.png) |
+| **Export PNG**: local share card from Map | **Insights**: quiz results, including confident wrong answers |
 
 ## Try it in two minutes
 
@@ -30,7 +30,7 @@ Open <http://127.0.0.1:7777>. Map opens first, with the percentage of lines not 
 project, run the VS Code extension and point the receiver at it as described below.
 
 **Status: a local presentation MVP.** The VS Code extension, local receiver, SQLite storage and
-React dashboard work end to end (Risk, Map, Timeline, Insights, Share card, per-file study guide).
+React dashboard work end to end (Risk, Map, Learning, Insights, Share card, per-file study guide).
 Scope and decisions are in [the short v1 design](DESIGN.md) and
 [the simplified roadmap](reports/roadmap-proposal.md); [the agent handoff](context_handoff.md)
 has the run checklist.
@@ -435,7 +435,5 @@ For the controlled Claude Code sandbox exercise, follow
 [the pilot instructions](reports/phase1-pilot.md). They include prompts for direct
 and shell edits, commit/report commands, and expected evidence states.
 
-Timeline shows weekly distinct files on screen versus files with filesystem changes.
-The lines draw in when the view opens, with animation disabled for reduced-motion preferences.
-Changes can come from any tool; these series do not identify human or agent authorship.
-Restart the Python receiver after updating to load these new weekly fields.
+Timeline is removed from dashboard navigation. Old `#timeline` links open Map.
+Recorded activity remains available in local storage; no observations were deleted.

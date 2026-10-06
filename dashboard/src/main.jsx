@@ -8,8 +8,8 @@ import '@fontsource/eb-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-400.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-600.css';
-import { api, calendarAxis, coverageRatio, coverageStyle, explainApi, directory, directories, filename, gapSummary, guideItems, guideMarkdown, GUIDE_STATES, inRanges, label, lineSpan, quizForUnit, missingLines, number, percent, rangeText } from './data';
-import { drawShare, Lanes, Treemap, Weekly } from './charts';
+import { api, coverageRatio, coverageStyle, explainApi, directory, directories, filename, gapSummary, guideItems, guideMarkdown, GUIDE_STATES, inRanges, label, lineSpan, quizForUnit, missingLines, number, percent, rangeText } from './data';
+import { drawShare, Treemap } from './charts';
 import './style.css';
 
 function Empty({ title, children }) { return <p className="empty-line"><strong>{title}.</strong> {children}</p>; }
@@ -153,16 +153,6 @@ function FileDetail({ file, data, close }) {
   </dialog>;
 }
 
-function Timeline({ data, inspect }) {
-  const axis = calendarAxis(data.weekly, data.review.ticks);
-  const hasWeekly = axis?.columns.some(w => w.files_touched > 0);
-  const within = at => axis && +new Date(at) >= axis.start && +new Date(at) < axis.end;
-  const hasLanes = data.timeline.some(e => within(e.observed_at) && data.files.some(f => f.path === e.payload.path) && ['visibility', 'interaction', 'file_event'].includes(e.kind)) || data.review.ticks.some(t => within(t.at) && data.files.some(f => f.path === t.path));
-  return <main className="standard-page"><div className="page-heading"><span className="eyebrow">Activity</span><h1>Activity over time</h1><p>What the extension observed, by week.</p></div>
-    {hasWeekly ? <section className="chart-panel"><h2>On screen and changed</h2><Weekly axis={axis} ticks={data.review.ticks} /></section> : <Empty title="No activity yet">Start recording in VS Code to see files touched per week.</Empty>}
-    {hasLanes && <section className="chart-panel"><h2>Activity by file</h2><p className="mono">The last {number(data.timeline.length)} observed events, grouped by file.</p><Lanes files={data.files} events={data.timeline} ticks={data.review.ticks} onSelect={inspect} axis={axis} /><p className="lane-legend mono">Short mark: on screen · Tall mark: editor interaction · Dashed mark: file changed · Dot: quiz completed</p></section>}
-  </main>;
-}
 
 function Insights({ data }) {
   const review = data.review;
@@ -446,7 +436,7 @@ function DashboardApp({ page, query }) {
   useEffect(() => { refresh(); const timer = setInterval(() => { if (!document.hidden) refresh(); }, 10000); return () => clearInterval(timer); }, []);
   const file = data?.files.find(f => f.path === selected);
   const inspect = f => setSelected(f.path);
-  return <><header className="app-header"><a href="#map" className="brand"><span className="brand-mark" />blindspot</a><nav aria-label="Dashboard views">{[['map', 'Map'], ['risk', 'Risk'], ['learn', 'Learning'], ['timeline', 'Timeline'], ['insights', 'Insights']].map(([id, name]) => <a className={['timeline', 'insights'].includes(id) ? 'desktop-nav' : undefined} key={id} href={`#${id}`} aria-current={page === id ? 'page' : undefined}>{name}</a>)}<details className="mobile-nav"><summary>More</summary><div>{[['timeline', 'Timeline'], ['insights', 'Insights']].map(([id, name]) => <a key={id} href={`#${id}`} aria-current={page === id ? 'page' : undefined}>{name}</a>)}</div></details></nav>
+  return <><header className="app-header"><a href="#map" className="brand"><span className="brand-mark" />blindspot</a><nav aria-label="Dashboard views">{[['map', 'Map'], ['risk', 'Risk'], ['learn', 'Learning'], ['insights', 'Insights']].map(([id, name]) => <a className={id === 'insights' ? 'desktop-nav' : undefined} key={id} href={`#${id}`} aria-current={page === id ? 'page' : undefined}>{name}</a>)}<details className="mobile-nav"><summary>More</summary><div>{[['insights', 'Insights']].map(([id, name]) => <a key={id} href={`#${id}`} aria-current={page === id ? 'page' : undefined}>{name}</a>)}</div></details></nav>
     <div className="header-context mono">{data && <>
       <span className="project-context">{data.workspace.split('/').at(-1)} · {data.git.branch || 'Git unavailable'}</span>
       <details className="connection-details"><summary>{data.health.sessions.some(s => s.connection_state === 'connected' && s.status === 'recording') ? 'Recording' : 'Not recording'}</summary><div>{number(data.health.sessions.length)} sessions<br />Updated {new Date(data.generated_at).toLocaleTimeString()}<br />Local only</div></details>
@@ -454,7 +444,7 @@ function DashboardApp({ page, query }) {
     {error && <p className="notice" role="alert">{error}</p>}
     {!data ? <Empty title={error ? 'Receiver unavailable' : 'Loading files'}>Start the local server, then refresh.</Empty> : <>
       {data.review.error && <p className="notice">Cannot load quizzes. Check the quiz folder and refresh.</p>}
-      {page === 'learn' ? new URLSearchParams(query).get('path') ? <GuidePage data={data} path={new URLSearchParams(query).get('path')} learning /> : <Learning data={data} /> : page === 'guide' ? <GuidePage data={data} path={new URLSearchParams(query).get('path') || ''} /> : page === 'map' ? <MapView data={data} inspect={inspect} /> : page === 'timeline' ? <Timeline data={data} inspect={inspect} /> : page === 'insights' ? <Insights data={data} /> : page === 'share' ? <Share data={data} /> : <Risk data={data} inspect={inspect} />}
+      {page === 'learn' ? new URLSearchParams(query).get('path') ? <GuidePage data={data} path={new URLSearchParams(query).get('path')} learning /> : <Learning data={data} /> : page === 'guide' ? <GuidePage data={data} path={new URLSearchParams(query).get('path') || ''} /> : page === 'map' ? <MapView data={data} inspect={inspect} /> : page === 'insights' ? <Insights data={data} /> : page === 'share' ? <Share data={data} /> : <Risk data={data} inspect={inspect} />}
       {data.inventory_diagnostics.length > 0 && <p className="notice">Some files could not be loaded. Check the project folder and refresh.</p>}
       {file && <FileDetail key={file.path} file={file} data={data} close={() => setSelected(null)} />}
     </>}
@@ -475,7 +465,7 @@ function MethodologyPanel({ close }) {
     <p>“Seen” means a line appeared on screen during a recording. “Never seen” means it has no matching on-screen activity. Earlier activity is unknown. A line being on screen does not establish that it was read or understood.</p>
     <p>Changed lines lose their seen status; unchanged lines can carry it forward. Unknown files are left out of line totals until their contents can be checked.</p>
     <p>Changed-line highlights compare this file with the most recently captured different version that had on-screen activity. They show added or replaced lines without matching display evidence. Files without an earlier viewed version have no change comparison.</p>
-    <p>Glimpsed means less than a second on screen. Weekly activity counts each file once across visible ranges, editor interactions and file changes. Weeks start on Monday in UTC.</p>
+    <p>Glimpsed means less than a second on screen.</p>
     <p>Quiz accuracy is agreement with a generated answer key, which may be wrong. Results cover the tested passage. Confidence totals include completed attempts and practice. Changed files need a new test; hatching marks passages without a matching test.</p>
     <p>On-screen activity is visible only in this editor while recording. Filesystem changes can come from other tools.</p>
     <p>Everything stays on this machine. Nothing is transmitted outside it.</p>
@@ -484,9 +474,9 @@ function MethodologyPanel({ close }) {
 
 function Router() {
   const [hash, setHash] = useState(window.location.hash);
-  useEffect(() => { const change = () => setHash(window.location.hash); window.addEventListener('hashchange', change); return () => window.removeEventListener('hashchange', change); }, []);
+  useEffect(() => { const change = () => { const next = window.location.hash.split('?')[0] === '#timeline' ? '#map' : window.location.hash; if (next !== window.location.hash) window.history.replaceState(null, '', next); setHash(next); }; change(); window.addEventListener('hashchange', change); return () => window.removeEventListener('hashchange', change); }, []);
   const [page, query = ''] = hash.replace(/^#/, '').split('?');
-  return <>{page === 'review' ? <Review key={hash} params={new URLSearchParams(query)} /> : <DashboardApp page={page || 'map'} query={query} />}<Methodology /></>;
+  return <>{page === 'review' ? <Review key={hash} params={new URLSearchParams(query)} /> : <DashboardApp page={page === 'timeline' ? 'map' : page || 'map'} query={query} />}<Methodology /></>;
 }
 
 createRoot(document.getElementById('root')).render(<Router />);

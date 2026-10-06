@@ -147,17 +147,10 @@ try {
   await expect(page.locator('.file-index button')).toHaveText('b.py');
   await page.getByRole('searchbox').fill('');
   await screenshot('map');
-  await page.getByRole('link', { name: 'Timeline', exact: true }).click();
-  await expect(page.locator('.activity-chart')).toBeVisible();
-  await expect(page.locator('.lane')).toHaveCount(1);
-  await expect(page.locator('.activity-series path')).toHaveCount(2);
-  await expect(page.getByText('Files on screen', { exact: true })).toBeVisible();
-  await expect(page.getByText('Files changed', { exact: true })).toBeVisible();
-  expect(await page.locator('.chart-reveal').evaluate(el => getComputedStyle(el).animationName)).toBe('activity-reveal');
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  expect(await page.locator('.chart-reveal').evaluate(el => getComputedStyle(el).animationName)).toBe('none');
-  await screenshot('timeline');
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await expect(page.getByRole('link', { name: 'Timeline', exact: true })).toHaveCount(0);
+  await page.goto(config.url + '#timeline');
+  await expect(page).toHaveURL(/#map$/);
+  await expect(page.locator('nav a[aria-current="page"]')).toHaveText('Map');
   await page.getByRole('link', { name: 'Insights', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Confidently wrong' })).toBeVisible();
   await expect(page.locator('.calibration').last()).toContainText('3/3 correct · 100%');
@@ -184,8 +177,8 @@ try {
   await expect(page.getByText(/does not establish that it was read or understood/)).toHaveCount(1);
   await page.getByRole('button', { name: 'Close methodology' }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const view of ['Risk', 'Learning', 'Map', 'Timeline', 'Insights']) {
-    if (['Timeline', 'Insights'].includes(view) && !await page.locator('.mobile-nav').evaluate(el => el.open)) await page.getByText('More', { exact: true }).click();
+  for (const view of ['Risk', 'Learning', 'Map', 'Insights']) {
+    if (view === 'Insights' && !await page.locator('.mobile-nav').evaluate(el => el.open)) await page.getByText('More', { exact: true }).click();
     await page.getByRole('link', { name: view, exact: true }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     expect(await page.locator('body').innerText()).not.toMatch(/eligible|current source|observer|binding|collector|stored|\brecord\b/i);
@@ -267,7 +260,7 @@ try {
   await expect(page.locator('.learning-file')).toHaveCount(0);
   expect(external).toEqual([]);
   expect(failures).toEqual([]);
-  console.log('Browser checks passed: Learning hub, lesson tabs, keyboard navigation, quiz draft preservation, model fallback, Risk, source, review, Map, Timeline, Insights, PNG, empty states, mobile, and local-only requests.');
+  console.log('Browser checks passed: Learning hub, lesson tabs, keyboard navigation, quiz draft preservation, model fallback, Risk, source, review, Map, Insights, PNG, empty states, mobile, and local-only requests.');
 } finally {
   if (browser) await browser.close();
   fixture.kill('SIGTERM');
