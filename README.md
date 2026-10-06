@@ -37,7 +37,7 @@ has the run checklist.
 
 The localhost site is the main demo surface; VS Code supplies observations and
 recording controls. Display evidence does not prove reading or understanding.
-Quiz generation remains paused.
+Quizzes support pasted model replies; automatic local quiz generation is deferred.
 
 For the existing 0.3 development build, see [setup instructions](reports/observer-03.md#load-this-build).
 Its longer acceptance matrix is historical guidance, not a prerequisite for the
@@ -47,9 +47,16 @@ no runtime Python dependencies or model session are required.
 The CLI documentation below describes the earlier transcript/evidence and review
 workflow. Those commands and records remain available separately from the demo.
 
-## Run the dashboard
+## Local setup and hosting
 
-Build once (Node 22+), then start the existing receiver (Python 3.11+):
+Requirements: Python 3.11+, Node 22+, Git. Run these commands from the repository
+root. Create the virtual environment once if `.venv` does not already exist:
+
+```sh
+python3 -m venv .venv
+```
+
+Install frontend dependencies and build, then host the dashboard in your terminal:
 
 ```sh
 npm --prefix dashboard ci
@@ -59,6 +66,33 @@ npm --prefix dashboard run build
   --state-dir reports/local/observer-state \
   --port 7777
 ```
+
+Leave the server terminal running and open **http://127.0.0.1:7777**. Ctrl+C stops
+it. This hosts the dashboard on your machine only. To use another project, replace
+`--workspace` with its Git checkout and choose a separate `--state-dir` outside
+that checkout. The extension must use that server's `connection.json`.
+
+### Updating the frontend
+
+After changing frontend files or pulling updates, run this in a second terminal:
+
+```sh
+npm --prefix dashboard run build
+```
+
+Then refresh the browser. Frontend changes do not require restarting Python.
+Run `npm --prefix dashboard ci` first if dependencies changed.
+
+For automatic rebuilds while editing, keep this running in the second terminal:
+
+```sh
+npm --prefix dashboard run build -- --watch
+```
+
+Wait for the build to finish, then refresh the browser; this is build watching,
+not browser hot reload. Stop/restart the server after changing Python code or its
+workspace/state options. Keep the same state directory to preserve observations
+and quizzes.
 
 `scripts/demo.sh` does both steps. The built dashboard (`blindspot/observer/dashboard_dist/`) is
 not committed, so after `git pull` or a branch switch you must rebuild or the old UI keeps serving.
@@ -78,7 +112,7 @@ Review serves existing validated questions only. Add
 `--review-state-dir /absolute/path/to/existing-review-state` to connect a separate
 `reviews.json` store for the **same workspace**. Otherwise it reads review state
 in the observer state directory. No matching unanswered quiz means the Review
-action is unavailable; quiz generation remains paused. Passing a current eligible
+action is unavailable until a quiz is imported. Passing a current eligible
 sample reduces dashboard queue priority without changing display percentages.
 
 **Study guide.** File detail includes a guide for the selected file, built only from the
@@ -95,6 +129,58 @@ checks the shape, the cited lines and the commit it is tied to, then opens the e
 screen. Quizzes are tied to committed code (commit first), cover 10 to 300 lines, and carry an
 answer key written by the model and not verified, so a question that looks wrong can be reported
 after you finish, which removes that quiz. Blindspot itself makes no model call for this.
+
+**Learning.** The Learning tab lists files with unseen lines and opens a lesson
+for one code unit at a time. Switch between Code, Explanation, and Quiz; use
+Previous/Next to move between units. Code and paste-in quizzes work without
+Ollama. Browsing lessons does not claim understanding or change VS Code display
+evidence; completed quizzes use the existing review rules.
+
+**Visibility colors.** Zero lines seen is red. Partial coverage shifts from red
+to yellow in proportion to the lines seen. Only full coverage is blue; unknown
+files are neutral. Colors indicate display evidence, not quiz accuracy.
+
+**Agent support.** The VS Code dashboard works alongside any coding agent that
+changes files in the watched local workspace, including terminal-based agents.
+It observes file changes and editor visibility without identifying the author.
+The older transcript-analysis CLI separately supports Claude Code logs only.
+Code shown in a terminal or another application does not count as VS Code
+source-editor visibility.
+
+**Changed code.** File chips include the seen percentage. Risk and Learning show
+a changed-lines badge when added or replaced lines lack display evidence, even
+if the label stays Partly seen. File detail highlights those lines and offers
+**Show changed lines**. Comparison requires an earlier version with on-screen
+activity; opening the changed lines in VS Code removes their badge contribution.
+
+### Test quiz creation with ChatGPT
+
+Use the seeded sample project from **Try it in two minutes** for a disposable
+trial. It already has committed code and invented activity; its prewritten quiz
+does not count as a generated-model test.
+
+1. Open **Learning**, find `notifications.py`, and choose **Open lesson**.
+2. Choose the `render` unit in the outline, then the **Quiz** tab.
+3. Click **Make a quiz → Copy prompt**. Paste the prompt into a fresh ChatGPT
+   conversation and retain the exact reply.
+4. Paste the unchanged reply into **Model reply**, then click **Create quiz**.
+   Preserve any error or warning before repairing the reply.
+5. Repeat for `fines.py` → `fine_for` in a fresh ChatGPT conversation.
+6. Check each answer key against the numbered code, then click **Start quiz**.
+   Submit an option and confidence for every question. Source state and risk
+   should stay hidden during the quiz; keys appear after completion.
+7. Return to Risk. A passing sample should lower review priority; it does not
+   change the lines-seen percentage. The exact row position can stay the same
+   when other files still have lower priority.
+8. For a faulty key, use **This answer key looks wrong** after completing the
+   quiz. Reporting removes the whole set from effective results and keeps its
+   history. Do this only for a genuinely faulty key or a labelled workflow test
+   in disposable state.
+
+Quizzes require committed code; files with unsaved or uncommitted changes must
+be committed before quiz creation. Ollama is not needed for this paste-in flow.
+Only the sample code you manually paste is sent to ChatGPT. For debugging,
+retain the raw reply, ChatGPT model name, import errors/warnings, and final result.
 
 **Optional local explanations.** If [Ollama](https://ollama.com) is running, the full guide page
 gets an **Explain** button on each code unit and **Summarize this file**. Install a model once

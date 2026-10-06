@@ -99,6 +99,34 @@ class DashboardTests(SandboxCase):
         with self.assertRaises(ReviewError): self.dashboard.review_post("start", {"set_id": set_id})
         with self.assertRaises(ValueError): self.dashboard.source("a.py", old_hash)
 
+    def test_external_change_is_visible_even_when_state_stays_partial(self):
+        old = "\n".join(f"VALUE_{i} = {i}" for i in range(1, 13)) + "\n"
+        self.commit({"a.py": old})
+        self.store.append(self.event("session_start", {"mode": "visible-editors-reported-ranges", "heartbeat_interval_ms": 2000}))
+        def snapshot(text, ms):
+            self.store.append(self.event("snapshot", {"path": "a.py", "text": text, "content_hash": digest(text),
+                "line_count": len(text.split("\n")), "origin": "disk"}, ms))
+        def view(text, ranges, ms):
+            self.store.append(self.event("visibility", {"path": "a.py", "content_hash": digest(text), "ranges": ranges,
+                "start_ms": ms, "end_ms": ms + 1000, "duration_ms": 1000, "focused": True,
+                "focus_scope": "window", "editor_focus": "unverified"}, ms + 1000))
+        snapshot(old, 0); view(old, [[1, 4]], 0)
+        before = next(f for f in self.dashboard.overview()["files"] if f["path"] == "a.py")
+        self.assertEqual(before["state"], "partial")
+        self.assertIsNone(before["changed_unseen_lines"])
+        new = old.replace("VALUE_3 = 3", "VALUE_3 = 300") + "ADDED = 99\n"
+        (self.root / "a.py").write_text(new)  # No agent or editor identity is required.
+        after = next(f for f in self.dashboard.overview()["files"] if f["path"] == "a.py")
+        self.assertEqual(after["state"], "partial")
+        self.assertEqual(after["reported_lines"], 3)
+        self.assertEqual(after["changed_unseen_lines"], 2)
+        self.assertEqual(after["changed_unseen_ranges"], [[3, 3], [13, 13]])
+        self.assertEqual(after["change_baseline_hash"], digest(old))
+        snapshot(new, 1100); view(new, [[3, 3], [13, 13]], 1200)
+        seen = next(f for f in self.dashboard.overview()["files"] if f["path"] == "a.py")
+        self.assertEqual(seen["changed_unseen_lines"], 0)
+        self.assertEqual(seen["changed_unseen_ranges"], [])
+
     def test_dirty_context_invalidates_quiz_before_answers_are_served(self):
         set_id = self.quiz(contexts=[(self.root / "b.py", 1, 5)])
         self.store.append(self.event("session_start", {"mode": "visible-editors-reported-ranges", "heartbeat_interval_ms": 2000}))

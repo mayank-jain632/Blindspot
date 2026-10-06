@@ -14,6 +14,29 @@ export const directory = path => path.includes('/') ? path.slice(0, path.lastInd
 export const filename = path => path.split('/').at(-1);
 export const inRanges = (n, ranges) => ranges.some(([a, b]) => a <= n && n <= b);
 
+export function coverageRatio(seen, total, uncertain = false) {
+  if (uncertain || !Number.isFinite(seen) || !Number.isFinite(total) || total <= 0) return null;
+  return Math.max(0, Math.min(1, seen / total));
+}
+
+export function coverageStyle(seen, total, uncertain = false) {
+  const ratio = coverageRatio(seen, total, uncertain);
+  return {
+    '--fill': ratio === null ? 'var(--state-uncertain)' : ratio === 1 ? 'var(--coverage-blue)' : `color-mix(in srgb, var(--coverage-red) ${100 * (1 - ratio)}%, var(--coverage-yellow) ${100 * ratio}%)`,
+    '--on': ratio === null ? 'var(--on-uncertain)' : 'var(--coverage-ink)',
+  };
+}
+
+// Canvas uses the same endpoints and interpolation as CSS color-mix.
+export function coverageColor(seen, total, palette, uncertain = false) {
+  const ratio = coverageRatio(seen, total, uncertain);
+  if (ratio === null) return palette.unknown;
+  if (ratio === 1) return palette.blue;
+  const channels = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  const red = channels(palette.red), yellow = channels(palette.yellow);
+  return `rgb(${red.map((value, i) => Math.round(value + (yellow[i] - value) * ratio)).join(', ')})`;
+}
+
 export function missingLines(file) {
   if (file.current_uncertain) return null;
   if (Number.isFinite(file.unknown_lines)) return file.unknown_lines;

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calendarAxis, gapSummary, guideItems, guideMarkdown, layout, lineSpan, missingLines, percent, inRanges, rangeText } from '../src/data.js';
+import { calendarAxis, coverageColor, coverageRatio, coverageStyle, gapSummary, guideItems, guideMarkdown, layout, lineSpan, missingLines, percent, inRanges, rangeText } from '../src/data.js';
 
 test('squarified layout includes every file once and preserves line area', () => {
   const files = [{ path: 'src/nested/one.py', line_count: 90 }, { path: 'src/nested/two.py', line_count: 10 }, { path: 'readme.md', line_count: 20 }];
@@ -19,6 +19,20 @@ test('zero denominator is unavailable; inclusive ranges preserve boundary lines'
   assert.equal(percent(3, 4), 75);
   assert.ok(inRanges(10, [[1, 10]]));
   assert.ok(!inRanges(11, [[1, 10]]));
+});
+
+test('coverage color interpolates partial visibility and reserves blue for exact full coverage', () => {
+  const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  const token = name => css.match(new RegExp(`--${name}: (#[0-9A-F]{6})`))[1];
+  const palette = { red: token('coverage-red'), yellow: token('coverage-yellow'), blue: token('coverage-blue'), unknown: token('state-uncertain') };
+  assert.equal(coverageColor(0, 100, palette), 'rgb(239, 83, 80)');
+  assert.equal(coverageColor(50, 100, palette), 'rgb(242, 147, 87)');
+  assert.notEqual(coverageColor(9999, 10000, palette), palette.blue);
+  assert.equal(coverageColor(10000, 10000, palette), palette.blue);
+  assert.equal(coverageColor(100, 100, palette, true), palette.unknown);
+  assert.equal(coverageColor(0, 0, palette), palette.unknown);
+  assert.equal(coverageRatio(undefined, 100), null);
+  assert.match(coverageStyle(50, 100)['--fill'], /coverage-red\) 50%.*coverage-yellow\) 50%/);
 });
 
 test('timeline uses real calendar spacing and includes review-only weeks', () => {

@@ -22,8 +22,18 @@ overlapping panes within a session and takes the maximum across sessions.
 These are display estimates, never claims of reading or comprehension.
 
 The dashboard preserves the five observer reasons, labeled Unknown, Never seen,
-Glimpsed, Partly seen, and Seen. They use the warm-to-cool palette in that order. A separate
-sample-passed chip uses the final dark state color. No ownership state exists.
+Glimpsed, Partly seen, and Seen. File chips also show the proportion of lines with
+display evidence. Coverage colors interpolate from red (0%) toward yellow for
+partial coverage; exact 100% is blue. Unknown is neutral. A separate sample-passed
+chip remains distinct from display coverage. No ownership state exists.
+
+`changed_unseen_lines`, `changed_unseen_ranges`, and `change_baseline_hash` come
+from a source diff against the most recently captured different snapshot with
+visibility activity. Only inserted/replaced current lines outside reported
+ranges count. A missing baseline, uncertain source, source changing during the
+read, or a comparison above 5,000 lines leaves the count unavailable (`null`),
+not zero. These are comparison estimates, not edit attribution or a complete
+history of mutations. No earlier viewed version means no change badge.
 
 ## Reviews
 

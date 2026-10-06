@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
+from difflib import SequenceMatcher
 import json
 import os
 from pathlib import Path
@@ -17,7 +18,7 @@ from .explain import ExplanationCache, Ollama, file_prompt, unit_prompt, valid_m
 from .guide import blame, build as build_guide
 from .quizgen import QuizError, build_prompt, choose_range, grounding_warnings, normalize, question_count
 from .store import digest
-from .visibility import current_files, current_source, file_stats
+from .visibility import compact, current_files, current_source, file_stats
 
 STATES = {
     "current document state uncertain": "uncertain",
@@ -87,6 +88,7 @@ class Dashboard:
         with self.store.lock:
             overview = self.store.overview()
             files = {f["path"]: f for f in overview["files"]}
+            current = {f["path"]: f for f in current_files(self.store)[0]}
             review_error = None
             try: data = self.reviews.store.read()
             except ReviewError as exc:
@@ -135,6 +137,7 @@ class Dashboard:
                     "available": available,
                     "stale_results": any(a for a in completed if quizzes[a["set_id"]]["manifest"]["target"]["path"] == path and a["set_id"] not in matching)}
                 file["state"] = STATES[file["review_reason"]]
+                file.update(self.unseen_changes(file, current.get(path)))
                 file["commits_90d"] = git["commits"][path]
                 file["flagged"] = bool(file["current_uncertain"] or file["unknown_lines"] or
                                        not file["dwell_lines"] or file["review"]["confidently_wrong"])
@@ -165,6 +168,24 @@ class Dashboard:
                         "calibration": "Answers in completed validated quiz attempts for this workspace, including practice and historical source versions; agreement with stored keys.",
                         "weekly": "All stored visibility, interaction and filesystem notification records, grouped by observed date (UTC collector timestamps). Not edits or authorship."}}
 
+    def unseen_changes(self, file, current):
+        """Compare current source with the most recently captured different viewed version."""
+        result = {"changed_unseen_lines": None, "changed_unseen_ranges": [], "change_baseline_hash": None}
+        if file["current_uncertain"] or not current or current["current_uncertain"] or current["content_hash"] != file["content_hash"]: return result
+        row = self.store.db.execute(
+            "SELECT sources.hash,sources.text FROM events JOIN sources "
+            "ON sources.hash=json_extract(events.payload,'$.content_hash') "
+            "WHERE events.kind='visibility' AND events.path=? AND sources.hash!=? "
+            "ORDER BY events.id DESC LIMIT 1", (file["path"], file["content_hash"])).fetchone()
+        if not row: return result
+        current = current["text"].split("\n")
+        old = row[1].split("\n")
+        if max(len(old), len(current)) > 5000: return result
+        seen = {n for a, b in file["reported_ranges"] for n in range(a, b + 1)}
+        changed = {n for tag, _, _, a, b in SequenceMatcher(None, old, current, autojunk=False).get_opcodes()
+                   if tag in {"insert", "replace"} for n in range(a + 1, b + 1) if n not in seen}
+        return {"changed_unseen_lines": len(changed), "changed_unseen_ranges": compact(changed), "change_baseline_hash": row[0]}
+
     def evidence(self, file):
         records = []
         def add(text, source, state=None):
@@ -176,6 +197,9 @@ class Dashboard:
                 "SQLite visibility ranges + source hashes; unique unchanged-block mapping")
             add(f'{file["dwell_lines"]} lines on screen for at least a second.', "SQLite timed visibility intervals; per-session union, maximum across sessions")
             add(f'{file["unknown_lines"]} lines never on screen.', "Current source minus matched visibility ranges", "no_evidence")
+            if file.get("changed_unseen_lines"):
+                add(f'{file["changed_unseen_lines"]} added or changed lines have not been on screen.',
+                    "Current source diff against earlier visibility snapshot " + file["change_baseline_hash"] + "; minus matched display ranges", "no_evidence")
         if file["interaction_events"]:
             add(f'{file["interaction_events"]} editor interactions.', "SQLite interaction records (all source versions)")
         if file["commits_90d"] is not None:

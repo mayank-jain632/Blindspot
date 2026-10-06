@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { gapSummary, filename, layout, number, states, label } from './data';
+import { coverageColor, coverageStyle, gapSummary, filename, layout, number, label } from './data';
 
 export function Treemap({ files, onSelect }) {
   const ref = useRef(null);
@@ -19,7 +19,7 @@ export function Treemap({ files, onSelect }) {
       // Small cells keep exact area. The file index below supplies 44px controls.
       const roomy = width >= 44 && height >= 44;
       const props = { className: `map-cell state-${f.state} ${!f.review.tested ? 'untested' : ''}`,
-        style: { left: n.x0, top: n.y0, width, height },
+        style: { ...coverageStyle(f.reported_lines, f.line_count, f.current_uncertain), left: n.x0, top: n.y0, width, height },
         title: `${f.path} · ${number(f.line_count)} lines · ${label(f.state)} · ${f.review.tested ? 'Tested' : 'Never tested'}` };
       const content = width > 75 && height > 55 ? <><strong>{filename(f.path)}</strong><span>{label(f.state)}</span><small>{number(f.line_count)} lines</small></> : null;
       return roomy ? <button {...props} key={f.path} onClick={() => onSelect(f)} aria-label={`Inspect ${f.path}`}>{content}</button>
@@ -76,6 +76,7 @@ export async function drawShare(canvas, data) {
   await document.fonts.ready;
   const css = getComputedStyle(document.documentElement);
   const color = token => css.getPropertyValue(`--${token}`).trim();
+  const palette = { red: color('coverage-red'), yellow: color('coverage-yellow'), blue: color('coverage-blue'), unknown: color('state-uncertain') };
   const ctx = canvas.getContext('2d'); canvas.width = 1200; canvas.height = 630;
   ctx.fillStyle = color('ground'); ctx.fillRect(0, 0, 1200, 630);
   const glow = ctx.createRadialGradient(1200, 0, 0, 1200, 0, 700); glow.addColorStop(0, 'rgba(255,138,43,.35)'); glow.addColorStop(1, 'rgba(255,138,43,0)'); ctx.fillStyle = glow; ctx.fillRect(0, 0, 1200, 630);
@@ -95,7 +96,7 @@ export async function drawShare(canvas, data) {
   const root = layout(data.files, 560, 350);
   for (const n of root.leaves().filter(n => n.data.file)) {
     const f = n.data.file, x = 600 + n.x0, y = 114 + n.y0, w = n.x1 - n.x0, h = n.y1 - n.y0;
-    ctx.fillStyle = color(`state-${f.state}`); ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = coverageColor(f.reported_lines, f.line_count, palette, f.current_uncertain); ctx.fillRect(x, y, w, h);
     if (!f.review.tested) {
       ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.globalAlpha = 0.08; ctx.strokeStyle = color('hatch');
       for (let d = -h; d < w + h; d += 8) { ctx.beginPath(); ctx.moveTo(x + d, y); ctx.lineTo(x + d + h, y + h); ctx.stroke(); }
@@ -103,9 +104,9 @@ export async function drawShare(canvas, data) {
     }
   }
   let x = 40;
-  for (const state of states) {
-    ctx.fillStyle = color(`state-${state.id}`); ctx.fillRect(x, 506, 10, 10);
-    text(state.label, x + 17, 516, 12, 'IBM Plex Mono', 'text-dim'); x += state.label.length * 7.2 + 35;
+  for (const [seen, label] of [[0, '0% seen'], [0.5, '50% seen'], [0.999, 'Below 100%'], [1, '100% seen'], [null, 'Unknown']]) {
+    ctx.fillStyle = coverageColor(seen, 1, palette); ctx.fillRect(x, 506, 10, 10);
+    text(label, x + 17, 516, 12, 'IBM Plex Mono', 'text-dim'); x += label.length * 7.2 + 35;
   }
 
   text('Area = lines · Hatched = never tested', 40, 598, 13, 'IBM Plex Mono', 'text-label');

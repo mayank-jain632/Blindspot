@@ -65,8 +65,17 @@ Rules:
 - correct_index is 0-based (0 is the first option).
 - rationale.start_line and rationale.end_line are real file line numbers, inside {start}-{end}, covering the lines that decide the answer.
 
-Reply with ONLY one JSON object, with no text before or after it and no code fence, in exactly this shape:
+Output format:
+- Return valid JSON inside one ```json code block, with no text outside it.
+- Inside the code block, use JSON syntax only. Do not add Markdown escapes to brackets, underscores, or comparison operators.
+- Use double quotes for JSON keys and strings. Escape any double quotes inside a string, or avoid quoting words inside it.
+- Use integers for correct_index and line numbers. Do not use trailing commas.
+- Check that the complete object parses as JSON before replying.
+
+Use this shape, expanding the questions list to exactly {count} questions:
+```json
 {json.dumps(example, indent=2)}
+```
 
 Code:
 {numbered}

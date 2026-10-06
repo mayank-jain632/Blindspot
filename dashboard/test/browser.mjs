@@ -21,6 +21,7 @@ try {
     CanvasRenderingContext2D.prototype.fillText = function(text, ...args) { window.canvasText.push({ text, font: this.font }); return original.call(this, text, ...args); };
   });
   const failures = [], external = [];
+  await page.route('**/api/dashboard/explain/status', route => route.fulfill({ json: { available: false, models: [], default: null, error: 'Ollama is not running. Start it and try again.' } }));
   page.on('pageerror', error => failures.push(error.message));
   page.on('request', request => { if (!request.url().startsWith(config.url) && !request.url().startsWith(config.empty_url) && !request.url().startsWith('blob:')) external.push(request.url()); });
   mkdirSync(resolve(project, 'reports/local/dashboard-checks'), { recursive: true });
@@ -38,6 +39,7 @@ try {
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('dialog').locator('.source-line')).toHaveCount(21);
   await expect(page.getByRole('dialog')).toContainText('3 of 21 lines seen.');
+  await expect(page.getByRole('dialog').locator('.detail-state')).toContainText('Partly seen · 14.2%');
   await expect(page.getByRole('dialog').locator('.source-line.untested')).toHaveCount(21);
   await expect(page.getByRole('heading', { name: 'Study guide' })).toBeVisible();
   await expect(page.locator('.guide-item')).toHaveCount(1);
@@ -168,7 +170,7 @@ try {
   await expect(page.getByText(/does not establish that it was read or understood/)).toHaveCount(1);
   await page.getByRole('button', { name: 'Close methodology' }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const view of ['Risk', 'Map', 'Timeline', 'Insights', 'Share']) {
+  for (const view of ['Risk', 'Learning', 'Map', 'Timeline', 'Insights', 'Share']) {
     await page.getByRole('link', { name: view, exact: true }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     expect(await page.locator('body').innerText()).not.toMatch(/eligible|current source|observer|binding|collector|stored|\brecord\b/i);
@@ -177,12 +179,40 @@ try {
   await page.goto(config.url + '#guide?path=a.py');
   await expect(page.locator('.guide-item')).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  await page.getByRole('link', { name: 'Learning', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Code to revisit' })).toBeVisible();
+  await expect(page.locator('.learning-file')).toHaveCount(2);
+  await screenshot('learning');
+  await page.locator('.learning-file').filter({ has: page.getByRole('heading', { name: 'a.py', exact: true }) }).getByRole('link', { name: 'Open lesson', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Inspect this section' })).toBeVisible();
+  expect(await page.locator('.lesson-panel .source-line').count()).toBeGreaterThan(0);
+  await expect(page.getByRole('button', { name: 'Previous unit' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Next unit' })).toBeDisabled();
+  await page.route('**/api/dashboard/explain/status', route => route.fulfill({ json: { available: false, models: [], default: null, error: 'Ollama is not running. Start it and try again.' } }));
+  await page.reload();
+  await page.getByRole('tab', { name: 'Explanation', exact: true }).click();
+  await expect(page.locator('.lesson-panel')).toContainText('Ollama is not running');
+  await page.getByRole('button', { name: 'Inspect the code', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Code', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('tab', { name: 'Code', exact: true }).focus();
+  await page.keyboard.press('End');
+  await expect(page.getByRole('tab', { name: 'Quiz', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: /Make (a|another) quiz/ }).click();
+  await page.getByLabel('Model reply').fill('Raw reply to preserve while inspecting code');
+  await page.getByRole('tab', { name: 'Code', exact: true }).click();
+  await expect(page.getByLabel('Model reply')).toBeHidden();
+  await page.getByRole('tab', { name: 'Quiz', exact: true }).click();
+  await expect(page.getByLabel('Model reply')).toHaveValue('Raw reply to preserve while inspecting code');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  await screenshot('learning-lesson');
   // Exercise the empty-column and zero-gap branches with fixture responses.
-  let scenario = 'unknown';
+  let scenario = 'changed';
   await page.route('**/api/dashboard', async route => {
     const response = await route.fetch();
     const data = await response.json();
-    if (scenario === 'unknown') {
+    if (scenario === 'changed') {
+      data.files = data.files.map(f => f.path === 'a.py' ? { ...f, changed_unseen_lines: 1, changed_unseen_ranges: [[10, 10]] } : f);
+    } else if (scenario === 'unknown') {
       data.files = data.files.map(f => ({ ...f, current_uncertain: true, state: 'uncertain', commits_90d: null }));
     } else if (scenario === 'zero') {
       data.has_observations = true;
@@ -191,6 +221,13 @@ try {
     } else data.files = [];
     await route.fulfill({ response, json: data });
   });
+  await page.goto(`${config.url}/?scenario=changed#risk`);
+  await expect(page.getByText('1 changed line unseen', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'a.py ./', exact: true }).click();
+  await expect(page.getByRole('dialog').locator('.source-line.changed-unseen')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Show changed lines', exact: true }).click();
+  await expect(page.getByRole('dialog').locator('.source-line.jump')).toHaveAttribute('data-line', '10');
+  scenario = 'unknown';
   await page.goto(config.empty_url);
   await expect(page.locator('.risk-table tbody tr')).toHaveCount(2);
   await expect(page.getByRole('columnheader', { name: 'Missing lines', exact: true })).toHaveCount(0);
@@ -198,13 +235,20 @@ try {
   scenario = 'zero';
   await page.goto(`${config.empty_url}/?scenario=zero#map`);
   await expect(page.locator('.headline')).toHaveText('No gaps recorded');
+  await page.getByRole('link', { name: 'Learning', exact: true }).click();
+  await expect(page.getByText('No gaps recorded.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'All files', exact: true }).click();
+  await expect(page.locator('.learning-file')).toHaveCount(2);
   scenario = 'empty';
   await page.goto(`${config.empty_url}/?scenario=empty#share`);
   await expect(page.getByText('No files to share.', { exact: true })).toBeVisible();
   await expect(page.locator('canvas')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Learning', exact: true }).click();
+  await expect(page.getByText('No files to study.', { exact: true })).toBeVisible();
+  await expect(page.locator('.learning-file')).toHaveCount(0);
   expect(external).toEqual([]);
   expect(failures).toEqual([]);
-  console.log('Browser checks passed: Risk, evidence panel, source, server-graded review, lower rank, hatching, Map, Timeline, Insights, PNG, empty state, mobile, and local-only requests.');
+  console.log('Browser checks passed: Learning hub, lesson tabs, keyboard navigation, quiz draft preservation, model fallback, Risk, source, review, Map, Timeline, Insights, PNG, empty states, mobile, and local-only requests.');
 } finally {
   if (browser) await browser.close();
   fixture.kill('SIGTERM');
