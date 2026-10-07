@@ -214,3 +214,16 @@ test('range and focus callbacks while paused do not read document contents',()=>
   assert.ok(h.events.some(e=>e.kind==='snapshot'&&e.payload.text.startsWith('changed while paused')));
   assert.deepEqual(h.errors,[]);
 }));
+
+test('connection picker validates configuration before saving and never starts recording',()=>withHost(async h=>{
+  const updates=[];
+  h.api.window.showOpenDialog=async()=>[{fsPath:h.connectionFile}];
+  h.api.workspace.getConfiguration=()=>({get:()=>h.connectionFile,update:async(...args)=>updates.push(args)});
+  await h.command('connect');
+  assert.deepEqual(updates,[['connectionFile',h.connectionFile,true]]);
+  assert.equal(h.events.length,0);
+  await fs.writeFile(h.connectionFile,JSON.stringify({endpoint:'http://remote.example',token:'x'.repeat(40)}));
+  await h.command('connect');
+  assert.equal(updates.length,1);
+  assert.match(h.errors.at(-1),/127.0.0.1/);
+}));

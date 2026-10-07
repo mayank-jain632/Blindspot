@@ -17,6 +17,15 @@ function Chip({ state, tested = true, seen, total, uncertain = false }) {
   const ratio = coverageRatio(seen, total, uncertain);
   return <span style={seen === undefined ? undefined : coverageStyle(seen, total, uncertain)} title={ratio === null ? undefined : `${number(seen)} of ${number(total)} lines have been on screen.`} className={`state-chip state-${state} ${!tested ? 'untested' : ''}`}>{label(state)}{ratio !== null && ` · ${Math.floor(ratio * 1000) / 10}%`}</span>;
 }
+function UnitSource({ lines, item, file }) {
+  let remaining = CODE_CAP;
+  const spans = (item.ranges || [[item.start, item.end]]).flatMap(([a, b]) => {
+    if (remaining <= 0) return [];
+    const end = Math.min(b, a + remaining - 1); remaining -= end - a + 1;
+    return [[a, end]];
+  });
+  return <>{spans.map(([a, b]) => <React.Fragment key={a}><p className="mono dim">Lines {a}–{b}</p><Source text={lines.slice(a - 1, b).join('\n')} file={file} start={a} trimTerminal={false} /></React.Fragment>)}{item.lines > CODE_CAP && <p className="mono dim">Showing the first {CODE_CAP} lines of this section. Open the file for the rest.</p>}</>;
+}
 function ChangedBadge({ file }) { return file.changed_unseen_lines > 0 ? <span className="changed-badge mono">{number(file.changed_unseen_lines)} changed {file.changed_unseen_lines === 1 ? 'line' : 'lines'} unseen</span> : null; }
 function FileName({ path }) { return <span className="file-name"><strong>{filename(path)}</strong><span>{directory(path)}</span></span>; }
 function startReview(file) { window.location.hash = `review?set_id=${encodeURIComponent(file.review.available[0].set_id)}&path=${encodeURIComponent(file.path)}`; }
@@ -27,12 +36,12 @@ function Risk({ data, inspect }) {
   const showMissing = files.some(f => missingLines(f) !== null);
   const showCommits = files.some(f => Number.isFinite(f.commits_90d));
   return <main className="risk-page">
-    <div className="page-heading"><span className="eyebrow">Review queue</span><h1>Files with gaps</h1><p>Ranked by unseen lines and recent commits. Passing a quiz lowers a file's rank.</p></div>
+    <div className="page-heading"><span className="eyebrow">Review queue</span><h1>Files with gaps</h1><p>Ranked by unseen lines and recent commits.</p></div>
     <div className="filters mono">
       {[['flagged', 'Files with gaps'], ['all', 'All files'], ...(data.review.confidently_wrong_files ? [['wrong', `Confidently wrong · ${data.review.confidently_wrong_files}`]] : [])].map(([key, name]) => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{name}</button>)}
       <label className="select-label">Directory<select value={dir} onChange={e => setDir(e.target.value)}><option value="all">All directories</option>{directories(data.files).map(d => <option key={d.name}>{d.name}</option>)}</select></label>
     </div>
-    {!data.has_observations && <Empty title="No recording yet">Start recording in Blindspot for VS Code.</Empty>}
+    {!data.has_observations && <Empty title="No display recorded">Start recording in Blindspot for VS Code.</Empty>}
     {!data.files.length && <Empty title="No files to show">Open a Git project in VS Code.</Empty>}
     {data.files.length > 0 && !files.length && <Empty title="Nothing currently flagged">Choose All files to browse the project.</Empty>}
     {files.length > 0 && <div className="table-scroll"><table className="risk-table mono"><thead><tr><th aria-label="Rank">#</th><th>File</th><th>Seen</th>{showMissing && <th title="Lines never on screen">Missing lines</th>}{showCommits && <th title="Commits touching this file in the last 90 days">Commits</th>}<th>Quiz sample</th><th aria-label="Action"></th></tr></thead>
@@ -65,9 +74,9 @@ function MapView({ data, inspect }) {
     </section></main>;
 }
 
-function Source({ text, file, start = 1, review = false }) {
+function Source({ text, file, start = 1, review = false, trimTerminal = true }) {
   const lines = text.split('\n');
-  if (review && lines.at(-1) === '') lines.pop();
+  if (trimTerminal && lines.at(-1) === '') lines.pop();
   return <div className={`source-well ${review ? 'review-source' : ''}`}><pre>{lines.map((line, i) => {
     const n = start + i;
     const state = file ? file.current_uncertain ? 'uncertain' : inRanges(n, file.dwell_ranges) ? 'reported' : inRanges(n, file.brief_ranges) ? 'brief' : 'no_evidence' : null;
@@ -86,11 +95,12 @@ function jumpTo(root, line) {
 }
 function useGuide(file) {
   const [guide, setGuide] = useState(null), [error, setError] = useState('');
+  const visibility = JSON.stringify(file.reported_ranges);
   useEffect(() => {
     let cancelled = false; setGuide(null); setError('');
     api(`/api/dashboard/guide?${new URLSearchParams({ path: file.path, hash: file.content_hash })}`).then(g => { if (!cancelled) setGuide(g); }).catch(e => { if (!cancelled) setError(e.message); });
     return () => { cancelled = true; };
-  }, [file.path, file.content_hash, file.current_uncertain]);
+  }, [file.path, file.content_hash, file.current_uncertain, visibility]);
   return [guide, error];
 }
 function GuideItem({ item, jump, id, code }) {
@@ -162,6 +172,7 @@ function Insights({ data }) {
     {calibration.length > 0 && <section className="chart-panel calibration-panel"><h2>Confidence versus accuracy</h2><p>How often you were right, grouped by how sure you were.</p>
       {calibration.map(([confidence, c]) => <div className="calibration mono" key={confidence}><div><span>{confidence[0].toUpperCase() + confidence.slice(1)}</span><span>{number(c.correct)}/{number(c.answers)} correct · {percent(c.correct, c.answers)}%</span></div><progress max={c.answers} value={c.correct} /></div>)}
     </section>}
+    {review.history?.length > 0 && <section className="chart-panel"><h2>Completed practice</h2>{review.history.map(a => <p className="mono" key={a.attempt_id}><a href={`#review?attempt_id=${encodeURIComponent(a.attempt_id)}&path=${encodeURIComponent(a.path)}`}>{a.path}</a> · {a.status} · {new Date(a.completed_at).toLocaleDateString()}</p>)}</section>}
   </main>;
 }
 
@@ -211,7 +222,7 @@ function Review({ params }) {
   // This screen never mounts the dashboard shell, state chips, queue or scores.
   return <div className="review-screen"><header className="review-header"><a href="#risk">← Exit review</a>{attempt && <span className="mono">{attempt.target.path}</span>}{question && <div className="review-progress mono"><span>Question {index + 1} of {attempt.questions.length}</span><span className="progress-dots" aria-hidden="true">{attempt.questions.map((q, i) => <i key={q.id} className={i === index ? 'current' : q.submitted ? 'submitted' : ''} />)}</span></div>}</header>
     {error && <p role="alert" className="notice">{error}</p>}
-    {result ? <main className="review-results"><span className="eyebrow">Completed sample</span><h1>Quiz results</h1><p className="guide-meta dim">Generated answer key · unverified</p><p className="mono">{result.questions.filter(q => q.correct).length} / {result.questions.length} answers correct</p><p>{result.current_sample_pass ? 'Quiz passed. Return to Risk to see the updated rank.' : 'Review the explanations, then choose another file.'}</p>
+    {result ? <main className="review-results"><span className="eyebrow">Completed sample</span><h1>Quiz results</h1><p className="guide-meta dim">Generated answer key · unverified</p><p className="mono">{result.questions.filter(q => q.correct).length} / {result.questions.length} answers correct</p><p>{result.set_status === 'rejected' ? 'Rejected answer key. Excluded from current results.' : result.currentness !== 'current' ? 'Historical result. Source has changed; excluded from current credit.' : 'Practice against an unverified answer key.'}</p>
       <div className="result-actions">{(attempt?.target.path || params.get('path')) && <><a className="button-link" href={`#map?path=${encodeURIComponent(attempt?.target.path || params.get('path'))}`}>Back to file</a><a className="button-link" href={`#learn?path=${encodeURIComponent(attempt?.target.path || params.get('path'))}&line=${attempt?.target.start_line || ''}`}>Study this section</a></>}</div>
       {result.questions.map((q, i) => ({ q, i })).sort((a, b) => Number(a.q.correct) - Number(b.q.correct)).map(({ q, i }) => <details open={!q.correct} key={q.question_id} className={`answer-record ${q.correct ? 'matches' : 'differs'}`}><summary><span className="eyebrow">Question {i + 1} · {q.confidence} · {q.correct ? 'Correct' : 'Incorrect'}</span><h2>{q.prompt}</h2></summary><p>Your answer: {q.options[q.chosen_index]}</p><p>Answer key: {q.options[q.correct_index]}</p><p>{q.explanation}</p><p className="mono dim">{q.rationale.path}:{q.rationale.start_line}–{q.rationale.end_line}</p><p>{q.rationale.reason}</p><ReportQuestion attemptId={result.attempt_id} questionId={q.question_id} /></details>)}<a className="button-link" href="#risk">Return to review queue</a></main>
       : attempt ? <main className="review-layout"><section className="review-code"><div className="source-caption mono">{attempt.target.path} · lines {attempt.target.start_line}–{attempt.target.end_line}</div><Source text={attempt.target.code} start={attempt.target.start_line} review />{attempt.context.map(c => <details key={`${c.path}:${c.start_line}`}><summary className="mono">Context · {c.path}:{c.start_line}–{c.end_line}</summary><Source text={c.code} start={c.start_line} review /></details>)}</section>
@@ -251,6 +262,7 @@ function QuizBox({ file, item }) {
     <button className="guide-explain-button" onClick={() => start(done.set_id)}>Start quiz</button></div>;
   if (phase === 'idle' || phase === 'loading') return <>
     {offer && <button className="guide-explain-button" onClick={() => start(offer.set_id)}>Take quiz · {offer.question_count} questions</button>}
+    <p className="guide-meta dim">Pasting this prompt into another service shares the selected code.</p>
     <button className="guide-quiz-button" disabled={phase === 'loading'} onClick={() => open(!offer)}>{phase === 'loading' ? 'Preparing' : offer ? 'Make another quiz' : 'Copy prompt'}</button>
     {error && <p className="notice" role="alert">{error}</p>}</>;
   return <div className="quiz-maker">
@@ -312,7 +324,6 @@ function LearningLesson({ file, guide, lines, local, chosen, pick, notes, explai
     if (target === null) return;
     event.preventDefault(); setTab(tabs[target][0]); document.getElementById(`lesson-tab-${tabs[target][0]}`).focus();
   }
-  const end = item && Math.min(item.end, item.start + CODE_CAP - 1);
   return <main className="lesson-layout">
     <aside className="lesson-sidebar">
       <a className="lesson-back" href="#learn">← Learning</a>
@@ -327,7 +338,7 @@ function LearningLesson({ file, guide, lines, local, chosen, pick, notes, explai
         <div className="lesson-heading"><div><h2 className="mono">{item.name}</h2><p className="mono dim">{lineSpan(item)} · {number(item.unseen)} lines never on screen</p></div><span className="mono dim">Unit {index + 1} of {items.length}</span></div>
         <div className="lesson-tabs" role="tablist" aria-label="Learning activities" onKeyDown={navigateTabs}>{tabs.map(([id, text]) => <button key={id} id={`lesson-tab-${id}`} role="tab" aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} aria-controls="lesson-panel" onClick={() => setTab(id)}>{text}</button>)}</div>
         <div id="lesson-panel" className="lesson-panel" role="tabpanel" aria-labelledby={`lesson-tab-${tab}`}>
-          {tab === 'code' && <>{item.doc && <p className="dim">{item.doc}</p>}{lines ? <Source text={lines.slice(item.start - 1, end).join('\n')} file={file} start={item.start} /> : <p className="dim">Loading code.</p>}{end < item.end && <p className="mono dim">Showing the first {CODE_CAP} lines.</p>}<a className="button-link" href={editor}>Open in VS Code</a></>}
+          {tab === 'code' && <>{item.doc && <p className="dim">{item.doc}</p>}{lines ? <UnitSource lines={lines} item={item} file={file} /> : <p className="dim">Loading code.</p>}<a className="button-link" href={editor}>Open in VS Code</a></>}
           {tab === 'explanation' && <>{!local ? <p role="status">Checking for Ollama.</p> : local.available ? <><label className="select-label lesson-model">Model<select aria-label="Local model" value={chosen} onChange={e => pick(e.target.value)}>{local.models.map(model => <option key={model}>{model}</option>)}</select></label><ExplainBox label="Explain this unit" note={notes[`${item.start}-${item.end}`]} run={regenerate => explain(item, regenerate)} /></> : <><p className="dim">Ollama is not available. Code and quizzes work without it.</p><button onClick={() => setTab('code')}>Back to code</button></>}</>}
           <div hidden={tab !== 'quiz'}><QuizBox key={`${file.content_hash}:${item.start}`} file={file} item={item} /></div>
         </div>
@@ -345,6 +356,7 @@ function GuidePage({ data, path, learning = false }) {
 function GuideBody({ file, data, learning }) {
   const [guide, error] = useGuide(file);
   const [scope, setScope] = useState('unseen'), [open, setOpen] = useState(() => new Set()), [source, setSource] = useState(null), [copied, setCopied] = useState(false);
+  useEffect(() => { setNotes({}); }, [JSON.stringify(file.reported_ranges)]);
   const [local, setLocal] = useState(null), [model, setModel] = useState(() => { try { return localStorage.getItem('blindspot.model') || ''; } catch { return ''; } }), [notes, setNotes] = useState({});
   useEffect(() => {
     let cancelled = false;
@@ -382,9 +394,8 @@ function GuideBody({ file, data, learning }) {
   if (learning) return <LearningLesson file={file} guide={guide} lines={lines} local={local} chosen={chosen} pick={pick} notes={notes} explain={explain} editor={editor} />;
   const codeFor = i => {
     if (!open.has(key(i))) return <button className="guide-code-toggle" onClick={() => toggle(i)} aria-expanded="false">Show code</button>;
-    const end = Math.min(i.end, i.start + CODE_CAP - 1);
     return <div className="guide-code"><button className="guide-code-toggle" onClick={() => toggle(i)} aria-expanded="true">Hide code</button>
-      {lines ? <><Source text={lines.slice(i.start - 1, end).join('\n')} file={file} start={i.start} />{end < i.end && <p className="guide-meta dim">Showing the first {CODE_CAP} lines. Open the file for the rest.</p>}</> : <p className="dim">Loading code.</p>}</div>;
+      {lines ? <><UnitSource lines={lines} item={i} file={file} /></> : <p className="dim">Loading code.</p>}</div>;
   };
   return <main className="guide-layout">
     <aside className="guide-sidebar">
@@ -445,7 +456,7 @@ function DashboardApp({ page, query }) {
     {!data ? <Empty title={error ? 'Receiver unavailable' : 'Loading files'}>Start the local server, then refresh.</Empty> : <>
       {data.review.error && <p className="notice">Cannot load quizzes. Check the quiz folder and refresh.</p>}
       {page === 'learn' ? new URLSearchParams(query).get('path') ? <GuidePage data={data} path={new URLSearchParams(query).get('path')} learning /> : <Learning data={data} /> : page === 'guide' ? <GuidePage data={data} path={new URLSearchParams(query).get('path') || ''} /> : page === 'map' ? <MapView data={data} inspect={inspect} /> : page === 'insights' ? <Insights data={data} /> : page === 'share' ? <Share data={data} /> : <Risk data={data} inspect={inspect} />}
-      {data.inventory_diagnostics.length > 0 && <p className="notice">Some files could not be loaded. Check the project folder and refresh.</p>}
+      {data.inventory_diagnostics.length > 0 && <p className="notice">{data.inventory_diagnostics.some(d => d.includes('truncated')) ? 'Only the first 500 supported file candidates are included. Coverage does not describe the whole project.' : 'Some files could not be loaded. Check the project folder and refresh.'}</p>}
       {file && <FileDetail key={file.path} file={file} data={data} close={() => setSelected(null)} />}
     </>}
   </>;
@@ -461,8 +472,9 @@ function MethodologyPanel({ close }) {
   useEffect(() => { ref.current.showModal(); }, []);
   return <dialog ref={ref} className="methodology-panel" aria-labelledby="methodology-title" onCancel={close}>
     <div className="detail-top"><h2 id="methodology-title">How this is measured</h2><button onClick={close} aria-label="Close methodology">×</button></div>
+    <p>Recording saves supported source snapshots, including unopened files, and activity in your chosen local state directory. Stop recording and the receiver before deleting that directory to remove saved data.</p>
     <p>The extension samples visible line ranges in focused VS Code windows. Split panes count; background tabs do not.</p>
-    <p>“Seen” means a line appeared on screen during a recording. “Never seen” means it has no matching on-screen activity. Earlier activity is unknown. A line being on screen does not establish that it was read or understood.</p>
+    <p>“Seen” means a line appeared on screen during a recording. “No display recorded” means it has no matching on-screen activity. Earlier activity is unknown. A line being on screen does not establish that it was read or understood.</p>
     <p>Changed lines lose their seen status; unchanged lines can carry it forward. Unknown files are left out of line totals until their contents can be checked.</p>
     <p>Changed-line highlights compare this file with the most recently captured different version that had on-screen activity. They show added or replaced lines without matching display evidence. Files without an earlier viewed version have no change comparison.</p>
     <p>Glimpsed means less than a second on screen.</p>

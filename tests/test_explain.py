@@ -72,6 +72,21 @@ class OllamaClientTests(SandboxCase):
         with self.assertRaisesRegex(LLMError, "nothing"): client.chat("llama3:8b", "s", "u")
 
 
+    def test_local_server_cannot_redirect_off_machine(self):
+        class Redirect(BaseHTTPRequestHandler):
+            def log_message(self, *_): pass
+            def do_GET(self):
+                self.send_response(302)
+                self.send_header("Location", "http://off-machine.invalid/secret")
+                self.end_headers()
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Redirect)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close); self.addCleanup(server.shutdown)
+        with self.assertRaises(HTTPError) as error:
+            Ollama(f"http://127.0.0.1:{server.server_address[1]}")._request("/api/tags")
+        self.assertEqual(error.exception.code, 302)
+
+
 class ExplainTests(SandboxCase):
     def setUp(self):
         super().setUp()
@@ -120,6 +135,19 @@ class ExplainTests(SandboxCase):
         self.assertFalse(self.ask(start=23, end=26, regenerate=True)["cached"]); self.assertEqual(len(self.fake.requests), 2)
         self.assertFalse(self.ask(start=23, end=26, model="llama3:8b")["cached"])  # another model is another answer
         self.assertTrue((self.store.directory / "explanations.json").is_file())
+
+    def test_cache_changes_when_display_gaps_change_without_source_edit(self):
+        self.ask(start=23, end=26)
+        sid = next(iter(self.store.sessions))
+        sequence = self.store.sessions[sid]["sequence"] + 1
+        self.store.append({"schema_version": 1, "workspace": str(self.root), "session_id": sid,
+            "sequence": sequence, "observed_at": datetime.now(timezone.utc).isoformat(), "monotonic_ms": 2000,
+            "kind": "visibility", "payload": {"path": "m.py", "content_hash": self.hash, "ranges": [[23, 26]],
+                "start_ms": 1000, "end_ms": 2000, "duration_ms": 1000, "focused": True,
+                "focus_scope": "window", "editor_focus": "unverified", "active": True, "exposure": "reported-visible"}})
+        self.assertFalse(self.ask(start=23, end=26)["cached"])
+        self.assertIn("nothing (every line", self.fake.requests[-1]["messages"][1]["content"])
+        self.assertEqual(next(i for i in self.dashboard.guide("m.py", self.hash)["items"] if i["name"] == "Client.get")["state"], "seen")
 
     def test_file_summary_sends_an_outline_not_code(self):
         result = self.ask()

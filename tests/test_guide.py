@@ -98,21 +98,15 @@ class GuideBuildTests(SandboxCase):
         overview = build(PY, "r.py", [])["overview"]
         self.assertEqual(overview["imports"], ["time", ".util"])
 
-    def test_syntax_error_falls_back_to_patterns(self):
-        guide = build("def ok(x):\n    return x\n\ndef broken(:\n", "bad.py", [])
-        self.assertEqual(guide["parser"], "patterns")
-        self.assertIn("ok", by_name(guide))
-
-    def test_javascript_patterns(self):
-        guide = build(JS, "s.js", [[1, 4]])
-        items = by_name(guide)
-        self.assertEqual(guide["parser"], "patterns")
-        self.assertEqual({"load", "save", "Store", "put"} <= set(items), True)
-        self.assertEqual(items["load"]["state"], "seen")
-        self.assertEqual((items["load"]["start"], items["load"]["end"]), (2, 4))
-        self.assertEqual(items["put"]["kind"], "method")
-        self.assertEqual(items["Store"]["lines"], 2)  # class line and closing brace; put() is its own unit
-        self.assertEqual(guide["overview"]["imports"], ["./a.js"])
+    def test_uncertain_boundaries_use_conservative_blocks(self):
+        for text, name in [("def ok(x):\n    return x\n\ndef broken(:\n", "bad.py"),
+                           (JS, "s.js"),
+                           ('function f() {\nreturn "}";\n}\n', "x.js")]:
+            guide = build(text, name, [])
+            self.assertEqual(guide["parser"], "blocks")
+            self.assertTrue(all(i["kind"] == "block" for i in guide["items"]))
+            self.assertEqual(sum(i["lines"] for i in guide["items"]), sum(bool(line.strip()) for line in text.splitlines()))
+        self.assertEqual(build(JS, "s.js", [])["overview"]["imports"], ["./a.js"])
 
     def test_markdown_sections_and_fallback_blocks(self):
         md = build("# Title\nintro\n\n## Part\ntext\n", "r.md", [])
@@ -129,7 +123,7 @@ class GuideBuildTests(SandboxCase):
 
     def test_unseen_total_matches_dashboard_line_count(self):
         guide = build("x = 1\ny = 2\n", "s.py", [[1, 2]])
-        self.assertEqual((guide["line_count"], guide["unseen_lines"]), (3, 1))
+        self.assertEqual((guide["line_count"], guide["unseen_lines"]), (2, 0))
 
     def test_pathological_long_lines_stay_fast(self):
         import time

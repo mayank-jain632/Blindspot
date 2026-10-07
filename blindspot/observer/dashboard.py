@@ -29,7 +29,7 @@ STATES = {
 }
 RANKING = ("Unresolved confidently-wrong samples first, then uncertain documents. "
            "Unverified display gaps are ordered by commits in 90 days, then missing lines. "
-           "Current passing samples lower priority; display counts remain unchanged.")
+           "Quiz passes do not alter file priority or display counts.")
 
 
 def git_context(workspace, paths, now):
@@ -65,7 +65,7 @@ def git_context(workspace, paths, now):
 def priority(file):
     review = file["review"]
     tier = (0 if review["confidently_wrong"] else 1 if file["current_uncertain"] else
-            4 if review["passing_samples"] else 2 if file["unknown_lines"] or not file["dwell_lines"] else 3)
+            2 if file["unknown_lines"] or not file["dwell_lines"] else 3)
     return (tier, -(file["commits_90d"] or 0), -file["unknown_lines"], file["path"])
 
 
@@ -156,13 +156,19 @@ class Dashboard:
                 weekly[week]["event_count"] += count
                 touched[week].add(path)
                 by_kind[week][kind].add(path)
+            history = [{"attempt_id": a["id"], "path": quizzes[a["set_id"]]["manifest"]["target"]["path"],
+                        "completed_at": a["completed_at"],
+                        "status": "rejected" if quizzes[a["set_id"]]["status"] != "validated" else
+                                  "current" if a["set_id"] in matching else "historical"}
+                       for a in data["attempts"].values() if a["set_id"] in quizzes and a["completed_at"]]
+            history.sort(key=lambda a: a["completed_at"], reverse=True)
             return {**overview, "files": ranked, "queue": [f["path"] for f in ranked if f["flagged"]],
                     "has_observations": overview["health"]["storage"]["events"] > 0,
                     "git": {k: v for k, v in git.items() if k != "commits"}, "ranking": RANKING,
                     "review": {"error": review_error, "directory": str(self.reviews.store.directory),
                         "confidently_wrong_files": sum(f["review"]["confidently_wrong"] for f in ranked),
                         "completed_attempts": len(completed), "calibration": calibration,
-                        "ticks": review_ticks},
+                        "ticks": review_ticks, "history": history},
                     "weekly": [{"week": w, "files_touched": len(touched[w]), "files_on_screen": len(by_kind[w]["visibility"]), "files_changed": len(by_kind[w]["file_event"]), **counts} for w, counts in sorted(weekly.items())],
                     "derivations": {"display": "Reported lines / eligible current lines; uncertain files excluded. Display evidence, not reading.",
                         "commits": "Distinct Git commits touching the current path in the last 90 days; no rename attribution.",
@@ -211,7 +217,7 @@ class Dashboard:
             add(f'{review["completed_attempts"]} quizzes completed.', "reviews.json completed validated attempts + current source hashes", "sample_passed")
         else: add("No quiz taken for this version. Choose a quiz in Risk.", "reviews.json completed attempts + current source hashes", "no_evidence")
         if review["passing_samples"]:
-            add(f'{review["passing_samples"]} samples passed. Priority lowered.', "ReviewService current_pass_attempts; sample scope only", "sample_passed")
+            add(f'{review["passing_samples"]} practice samples passed against an unverified key.', "ReviewService current_pass_attempts; sample scope only", "sample_passed")
         if review["confidently_wrong"]:
             add("You answered confidently and were wrong. Review this file again.", "ReviewService target.current_confidently_wrong", "uncertain")
         return records
@@ -253,10 +259,10 @@ class Dashboard:
             if not item: raise ValueError("Unknown code unit; refresh and try again.")
         model = body.get("model") or self.ollama.status()["default"]
         valid_model(model)
-        key = self.explanations.key(model, path, content_hash, start, end)
+        prompt = unit_prompt(path, item, text.split("\n")) if item else file_prompt(guide)
+        key = self.explanations.key(model, path, content_hash, start, end, prompt)
         cached = None if body.get("regenerate") else self.explanations.get(key)
         if cached: return {**cached, "cached": True}
-        prompt = unit_prompt(path, item, text.split("\n")) if item else file_prompt(guide)
         reply = self.ollama.chat(model, SYSTEM, prompt)
         result = {"text": reply, "model": model, "scope": "unit" if item else "file", "generated_at": datetime.now(timezone.utc).isoformat()}
         self.explanations.put(key, result)
@@ -332,9 +338,17 @@ class Dashboard:
         self._require_binding(attempt["set_id"])
 
     def review_get(self, action, attempt_id):
+        # Completed results remain readable after source changes or key rejection.
+        if action == "results":
+            result = self.reviews.results(attempt_id)
+            quiz = self.reviews.store.read()["sets"][result["set_id"]]
+            with self.store.lock:
+                files, _ = current_files(self.store)
+                if not self._matching(quiz, {f["path"]: f for f in files}):
+                    result.update(currentness="working_source_changed", current_sample_pass=False, sample_pass_eligible=False)
+            return result
         self._require_attempt(attempt_id)
         if action == "attempt": return self.reviews.show(attempt_id)
-        if action == "results": return self.reviews.results(attempt_id)
         raise ReviewError("Unknown review operation.")
 
     def review_post(self, action, body):

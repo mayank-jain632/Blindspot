@@ -36,6 +36,15 @@ class ChooseRangeTests(SandboxCase):
         with self.assertRaises(QuizError): choose_range("a\nb\n", {"start": 1, "end": 2, "unseen_ranges": []})
 
 
+    def test_long_unit_gap_at_end_still_selects_ten_lines(self):
+        text = "".join(f"line {n}\n" for n in range(1, 701))
+        start, end, _ = choose_range(text, {"start": 1, "end": 700, "unseen_ranges": [[699, 700]]})
+        self.assertEqual((start, end), (691, 700))
+        with self.assertRaisesRegex(QuizError, "size limit"):
+            choose_range("x" * 2000 + "\n" + ("x" * 2000 + "\n") * 10,
+                         {"start": 1, "end": 11, "unseen_ranges": []})
+
+
 class ReplyParsingTests(SandboxCase):
     def parse(self, text): return normalize(text, "m.py", 20, 29)
 

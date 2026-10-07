@@ -4,7 +4,7 @@
 project, it is easy to ship code you never looked at. Blindspot runs locally next to VS Code,
 records which lines were on screen, and shows what is still a blind spot, with a study guide
 for the parts you skipped. Display evidence is a starting point for awareness, not proof of
-reading or understanding. Nothing leaves your machine.
+reading or understanding. Recording stays on your machine. Copying a quiz prompt into another service shares the selected code.
 
 ![Map: files sized by lines and colored by how much was on screen](docs/screenshots/map.png)
 
@@ -15,9 +15,27 @@ reading or understanding. Nothing leaves your machine.
 | ![Share card](docs/screenshots/share.png) | ![Insights](docs/screenshots/insights.png) |
 | **Export PNG**: local share card from Map | **Insights**: quiz results, including confident wrong answers |
 
+## Install the packaged preview
+
+Supports **macOS/Linux**, Python 3.11+, Git and VS Code 1.95+. Windows and remote
+workspaces are unsupported. Install the VSIX plus the companion Python wheel;
+the wheel includes the dashboard and bundled fonts. Node is needed only to build.
+
+Follow [the public setup and installed-package checklist](docs/release.md).
+Run **Blindspot: Connect to Receiver** and choose the connection file printed by
+the receiver. No F5 configuration or pilot directories are required.
+
+Packages are prepared locally; no Marketplace or GitHub release is published yet.
+Recording saves supported source snapshots, including unopened files, in your
+chosen state directory. It considers at most 500 file candidates and skips files
+over 256 KiB. Only visible lines gain display credit. Earlier work is unknown.
+Delete the state directory after stopping recording and the receiver to remove
+saved source and activity. Quizzes and optional local explanations are unverified;
+quiz passes do not lower a whole file's priority.
+
 ## Try it in two minutes
 
-No VS Code needed. This builds an invented sample project with recorded activity:
+For contributors: install Node 22+, Python 3.11+ and Git, then run `python3 -m venv .venv`. No VS Code needed for this sample. This builds an invented sample project with recorded activity:
 
 ```sh
 npm --prefix dashboard ci && npm --prefix dashboard run build
@@ -41,7 +59,7 @@ Quizzes support pasted model replies; automatic local quiz generation is deferre
 
 For the existing 0.3 development build, see [setup instructions](reports/observer-03.md#load-this-build).
 Its longer acceptance matrix is historical guidance, not a prerequisite for the
-presentation MVP. Python 3.11+, Git and the supplied VS Code F5 launch are enough;
+presentation MVP. Python 3.11+ and Git are required; F5 is only for extension development;
 no runtime Python dependencies or model session are required.
 
 The CLI documentation below describes the earlier transcript/evidence and review
@@ -62,8 +80,8 @@ Install frontend dependencies and build, then host the dashboard in your termina
 npm --prefix dashboard ci
 npm --prefix dashboard run build
 .venv/bin/python -B -m blindspot observer serve \
-  --workspace sandbox/observer-pilot \
-  --state-dir reports/local/observer-state \
+  --workspace /absolute/path/to/your-git-project \
+  --state-dir /absolute/path/outside-the-project/blindspot-state \
   --port 7777
 ```
 
@@ -99,11 +117,10 @@ not committed, so after `git pull` or a branch switch you must rebuild or the ol
 
 Open **http://127.0.0.1:7777**. If an older receiver is running, stop it with
 Ctrl+C in its terminal before restarting. The extension reconnects using the
-same `connection.json`; its existing F5 launch already points to this state.
+same `connection.json`; select it with **Blindspot: Connect to Receiver**.
 The extension also provides a **Blindspot** activity-bar sidebar, themed like the dashboard with bundled fonts and a colored coverage grid, with unseen coverage,
 changed unseen lines, file shortcuts, recording controls, and **Full dashboard**.
-After updating the extension, restart the F5 Extension Development Host (or reload
-VS Code if installed), then click the Blindspot eye icon in the activity bar.
+After updating the extension, reload VS Code (restart F5 only during development), then click the Blindspot eye icon in the activity bar.
 It uses the same connection file and receiver; it does not start recording by itself.
 Start recording in VS Code to add observations. The dashboard refreshes every
 10 seconds and has a manual Refresh button.
@@ -117,8 +134,7 @@ Review serves existing validated questions only. Add
 `--review-state-dir /absolute/path/to/existing-review-state` to connect a separate
 `reviews.json` store for the **same workspace**. Otherwise it reads review state
 in the observer state directory. No matching unanswered quiz means the Review
-action is unavailable until a quiz is imported. Passing a current eligible
-sample reduces dashboard queue priority without changing display percentages.
+action is unavailable until a quiz is imported. Practice quizzes do not change display percentages or whole-file priority.
 
 **Study guide.** Choose **Study** in Risk or **Study unseen code** in file detail to
 open a lesson. File detail puts actions above the source, with secondary evidence
@@ -172,9 +188,8 @@ does not count as a generated-model test.
 6. Check each answer key against the numbered code, then click **Start quiz**.
    Submit an option and confidence for every question. Source state and risk
    should stay hidden during the quiz; keys appear after completion.
-7. Return to Risk. A passing sample should lower review priority; it does not
-   change the lines-seen percentage. The exact row position can stay the same
-   when other files still have lower priority.
+7. Return to Risk. A passing practice sample leaves visibility counts and
+   whole-file priority unchanged. Insights links to completed results.
 8. For a faulty key, use **This answer key looks wrong** after completing the
    quiz. Reporting removes the whole set from effective results and keeps its
    history. Do this only for a genuinely faulty key or a labelled workflow test

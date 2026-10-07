@@ -14,7 +14,7 @@ import socket
 import threading
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
-from urllib.request import ProxyHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 DEFAULT_URL = "http://127.0.0.1:11434"
 PROMPT_VERSION = 1
@@ -50,13 +50,18 @@ def valid_model(name) -> str:
     return name
 
 
+class NoRedirects(HTTPRedirectHandler):
+    def redirect_request(self, request, fp, code, message, headers, newurl):
+        raise HTTPError(request.full_url, code, "Local model redirects are disabled", headers, fp)
+
+
 class Ollama:
     def __init__(self, url: str = DEFAULT_URL, model: str | None = None, timeout: float = 180):
         self.url = loopback_url(url)
         self.default_model = model
         self.timeout = timeout
         # No environment proxy: this call must go straight to localhost.
-        self.opener = build_opener(ProxyHandler({}))
+        self.opener = build_opener(ProxyHandler({}), NoRedirects())
 
     def _request(self, path, body=None, timeout=None):
         request = Request(self.url + path, data=None if body is None else json.dumps(body).encode(),
@@ -154,8 +159,8 @@ class ExplanationCache:
         self.lock = threading.Lock()
 
     @staticmethod
-    def key(model, path, content_hash, start, end):
-        return hashlib.sha256(json.dumps([PROMPT_VERSION, model, path, content_hash, start, end]).encode()).hexdigest()
+    def key(model, path, content_hash, start, end, prompt):
+        return hashlib.sha256(json.dumps([PROMPT_VERSION, SYSTEM, model, path, content_hash, start, end, prompt]).encode()).hexdigest()
 
     def _read(self):
         try: data = json.loads(self.path.read_text())

@@ -2,7 +2,7 @@ import { hierarchy, treemap, treemapSquarify } from 'd3-hierarchy';
 
 export const states = [
   { id: 'uncertain', label: 'Unknown', description: 'Reconnect the extension to check this file.' },
-  { id: 'no_evidence', label: 'Never seen', description: 'No lines on screen.' },
+  { id: 'no_evidence', label: 'No display recorded', description: 'No lines displayed during recording.' },
   { id: 'brief', label: 'Glimpsed', description: 'On screen for less than a second.' },
   { id: 'partial', label: 'Partly seen', description: 'Some lines have been on screen.' },
   { id: 'reported', label: 'Seen', description: 'Every line has been on screen.' },
@@ -52,8 +52,8 @@ export function gapSummary(data) {
   const { reported_lines: seen, line_count: lines } = data.totals;
   return {
     known, gap, affected,
-    headline: !known ? 'Start recording' : `${gap && lines ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(Math.max(0.1, gap / lines * 100)) : 0}%`,
-    detail: !known ? 'Open Blindspot in VS Code to begin.' : gap ? `${number(gap)} lines never on screen, across ${number(affected)} ${affected === 1 ? 'file' : 'files'}` : 'No gaps recorded.',
+    headline: !known ? 'No display recorded' : `${gap && lines ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(Math.max(0.1, gap / lines * 100)) : 0}%`,
+    detail: !known ? 'Start recording in VS Code, then open or scroll supported files.' : gap ? `${number(gap)} lines never on screen, across ${number(affected)} ${affected === 1 ? 'file' : 'files'}` : 'No gaps recorded.',
     context: known ? `${number(seen)} of ${number(lines)} lines seen · ${number(data.files.length)} files tracked` : '',
     percentage: known && lines ? `${percent(seen, lines)}% seen` : '',
   };
@@ -130,7 +130,7 @@ export function directories(files) {
 
 // Study guide: the server returns every code unit; the toggle only filters and orders.
 export const GUIDE_STATES = { unseen: 'no_evidence', partial: 'partial', seen: 'reported' };
-export const lineSpan = i => i.start === i.end ? `Line ${i.start}` : `Lines ${i.start}–${i.end}`;
+export const lineSpan = i => i.ranges?.length > 1 ? `Lines ${rangeText(i.ranges)}` : i.start === i.end ? `Line ${i.start}` : `Lines ${i.start}–${i.end}`;
 export function guideItems(guide, scope) {
   if (scope === 'whole') return guide.items;
   return guide.items.filter(i => i.unseen > 0).sort((a, b) => b.unseen - a.unseen || a.start - b.start);

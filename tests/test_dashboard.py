@@ -83,14 +83,14 @@ class DashboardTests(SandboxCase):
         self.assertEqual(week["files_changed"], 2)
         self.assertEqual(week["files_touched"], 2)
 
-    def test_eligible_sample_pass_lowers_rank_without_altering_display(self):
+    def test_practice_pass_does_not_lower_whole_file_priority(self):
         set_id = self.quiz()
         before = self.dashboard.overview()
         self.assertEqual(before["queue"], ["a.py", "b.py"])
         result = self.complete(set_id)
         self.assertTrue(result["current_sample_pass"])
         after = self.dashboard.overview()
-        self.assertEqual(after["queue"], ["b.py", "a.py"])
+        self.assertEqual(after["queue"], before["queue"])
         self.assertEqual(before["totals"], after["totals"])
         file = next(f for f in after["files"] if f["path"] == "a.py")
         self.assertTrue(file["review"]["tested"])
@@ -113,6 +113,22 @@ class DashboardTests(SandboxCase):
         self.assertEqual(file["review"]["passing_samples"], 0)
         with self.assertRaises(ReviewError): self.dashboard.review_post("start", {"set_id": set_id})
         with self.assertRaises(ValueError): self.dashboard.source("a.py", old_hash)
+
+    def test_completed_results_remain_readable_after_change_and_rejection(self):
+        set_id = self.quiz()
+        result = self.complete(set_id)
+        attempt_id = result["attempt_id"]
+        (self.root / "a.py").write_text(CODE + "NEW = 2\n")
+        historical = self.dashboard.review_get("results", attempt_id)
+        self.assertNotEqual(historical["currentness"], "current")
+        self.assertFalse(historical["current_sample_pass"])
+        self.assertEqual(self.dashboard.overview()["review"]["history"][0]["status"], "historical")
+        self.dashboard.review_report({"attempt_id": attempt_id, "question_id": historical["questions"][0]["question_id"]})
+        rejected = self.dashboard.review_get("results", attempt_id)
+        self.assertEqual(rejected["set_status"], "rejected")
+        self.assertFalse(rejected["current_sample_pass"])
+        self.assertEqual(self.dashboard.overview()["review"]["history"][0]["status"], "rejected")
+        self.assertEqual(self.dashboard.overview()["review"]["calibration"]["solid"]["answers"], 0)
 
     def test_external_change_is_visible_even_when_state_stays_partial(self):
         old = "\n".join(f"VALUE_{i} = {i}" for i in range(1, 13)) + "\n"
@@ -191,4 +207,4 @@ class DashboardTests(SandboxCase):
             with request("/api/dashboard/review/answer", {"attempt_id": aid, "question_id": f"q{i+1}", "chosen_index": i, "confidence": "solid"}, local): pass
         with request("/api/dashboard/review/complete", {"attempt_id": aid}, local) as response:
             self.assertTrue(json.load(response)["current_sample_pass"])
-        with request("/api/dashboard") as response: self.assertEqual(json.load(response)["queue"], ["b.py", "a.py"])
+        with request("/api/dashboard") as response: self.assertEqual(json.load(response)["queue"], ["a.py", "b.py"])

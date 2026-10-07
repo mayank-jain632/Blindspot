@@ -176,6 +176,11 @@ s.db.execute('BEGIN IMMEDIATE'); s.db.execute("INSERT INTO sources VALUES ('unco
 class VisibilityDerivationTest(unittest.TestCase):
     def observation(self, text, ranges, a=0, b=1000):
         return {"session_id": "session", "payload": {"content_hash": digest(text), "ranges": ranges, "start_ms": a, "end_ms": b}}
+    def test_final_newline_does_not_leave_a_phantom_gap(self):
+        text = "one\ntwo\n"
+        stats = derive(text, [self.observation(text, [[1, 3]])], {digest(text): text})
+        self.assertEqual((stats["line_count"], stats["reported_lines"], stats["unknown_lines"]), (2, 2, 0))
+        self.assertEqual(derive("", [], {})["line_count"], 0)
     def test_mirrored_panes_union_time_instead_of_doubling_dwell(self):
         text = "one\ntwo\nthree"; e = self.observation(text, [[1, 2]], b=600)
         stats = derive(text, [e, copy.deepcopy(e)], {digest(text): text})

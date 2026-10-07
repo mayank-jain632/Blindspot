@@ -233,13 +233,13 @@ def extract(text, path):
         parsed = _py_items(text)
         if parsed and parsed[0]: return parsed[0], parsed[1], parsed[2], "python-ast", lines
         if parsed: return _block_items(lines), parsed[1], parsed[2], "blocks", lines
-        return _pattern_items(lines, PYTHON_FALLBACK), "", [], "patterns", lines
+        return _block_items(lines), "", [], "blocks", lines
     if extension in {"md", "markdown"}:
         items = _markdown_items(lines)
         if items: return items, "", [], "headings", lines
     elif extension in BY_EXTENSION:
-        items = _pattern_items(lines, BY_EXTENSION[extension])
-        if items: return items, "", _imports_pattern(text, extension), "patterns", lines
+        # Without a structural parser, avoid claiming function boundaries.
+        return _block_items(lines), "", _imports_pattern(text, extension), "blocks", lines
     return _block_items(lines), "", [], "blocks", lines
 
 
@@ -352,8 +352,8 @@ def build(text, path, reported_ranges, history=None, now=None):
     notes = []
     if len(raw) > MAX_ITEMS: notes.append(f"Showing the first {MAX_ITEMS} code units.")
     if history is None: notes.append("Change history is unavailable for this file (untracked, unsaved edits or no Git).")
-    # Same line count as the dashboard (it counts the empty line after a final newline).
-    all_lines = len(text.split("\n"))
+    # Final newlines terminate a line; they do not create a study gap.
+    all_lines = total
     unseen_total = sum(1 for n in range(1, all_lines + 1) if n not in reported)
     return {"path": path, "parser": parser, "line_count": all_lines, "unseen_lines": unseen_total,
             "overview": {"doc": module_doc, "imports": imports,

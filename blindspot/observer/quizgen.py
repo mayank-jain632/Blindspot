@@ -33,9 +33,12 @@ def choose_range(text: str, item: dict) -> tuple[int, int, str]:
     if end - start + 1 > MAX_LINES or size(start, end) > MAX_BYTES:
         anchor = item["unseen_ranges"][0][0] if item.get("unseen_ranges") else start
         start = min(max(start, anchor), end)
+        start = max(item["start"], min(start, end - MIN_LINES + 1))
         end = min(total, start + MAX_LINES - 1, end)
         while end - start + 1 > MIN_LINES and size(start, end) > MAX_BYTES: end -= 1
         note = f"This unit is long, so the quiz covers lines {start}-{end}."
+    if end - start + 1 < MIN_LINES or size(start, end) > MAX_BYTES:
+        raise QuizError("This section cannot fit ten lines within the quiz size limit. Choose a smaller section.")
     return start, end, note
 
 

@@ -50,7 +50,7 @@ test('gap headline reports the missing percentage and handles zero and unavailab
   assert.equal(gapSummary(data).headline, '2.2%');
   assert.equal(gapSummary(data).percentage, '98% seen');
   assert.equal(gapSummary({ ...data, files: [{ ...file, unknown_lines: 0 }] }).headline, '0%');
-  assert.equal(gapSummary({ ...data, has_observations: false }).headline, 'Start recording');
+  assert.equal(gapSummary({ ...data, has_observations: false }).headline, 'No display recorded');
   assert.equal(missingLines({ line_count: 446, reported_lines: 436 }), 10);
   assert.equal(missingLines({ ...file, current_uncertain: true }), null);
 });
