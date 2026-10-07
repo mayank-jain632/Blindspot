@@ -34,7 +34,7 @@ async function openOverview(api,connection,context,reconfigure=async()=>connecti
   // Pair and validate before creating a panel. Credentials never enter its DOM.
   await request('/api/overview');
   if(existing){existing.reveal();return;}
-  const assets=path.join(context.extensionPath,'../blindspot/observer/web');
+  const assets=path.join(context.extensionPath,'media/overview');
   const panel=api.window.createWebviewPanel('blindspot.overview','Blindspot Overview',api.ViewColumn.Beside,{enableScripts:true,localResourceRoots:[api.Uri.file(assets)]});
   existing=panel;
   const nonce=crypto.randomBytes(16).toString('hex');

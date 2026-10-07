@@ -1,10 +1,9 @@
 {
   "name": "blindspot-observer",
-  "displayName": "Blindspot Observer (Local Pilot)",
-  "description": "Opt-in visible editor observations for the local Blindspot collector experiment.",
-  "version": "0.3.2",
+  "displayName": "Blindspot",
+  "description": "Local line visibility tracking and study guides for agent-assisted code.",
+  "version": "0.4.0",
   "publisher": "blindspot-local",
-  "private": true,
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -21,6 +20,10 @@
   },
   "contributes": {
     "commands": [
+      {
+        "command": "blindspot.connect",
+        "title": "Blindspot: Connect to Receiver"
+      },
       {
         "command": "blindspot.start",
         "title": "Blindspot: Start Recording"
@@ -73,7 +76,7 @@
           "type": "string",
           "default": "",
           "scope": "machine",
-          "description": "Absolute path to the receiver connection.json. Development launch supplies this automatically."
+          "description": "Absolute path to connection.json, printed by the companion receiver. Use Blindspot: Connect to Receiver to select it."
         }
       }
     },
@@ -95,5 +98,26 @@
         }
       ]
     }
-  }
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^4.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mayank-jain632/Blindspot.git"
+  },
+  "homepage": "https://github.com/mayank-jain632/Blindspot",
+  "bugs": {
+    "url": "https://github.com/mayank-jain632/Blindspot/issues"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "coverage",
+    "visibility",
+    "local",
+    "learning"
+  ]
 }

@@ -317,6 +317,15 @@ function activate(context) {
     finally { run.resuming=false; }
   }
   const commands={
+    connect:async()=>{
+      const selected=await vscode.window.showOpenDialog({title:'Select the receiver connection.json',canSelectMany:false,canSelectFolders:false,filters:{JSON:['json']}});
+      if(!selected?.length)return;
+      try {
+        await readConnection(selected[0].fsPath);
+        await vscode.workspace.getConfiguration('blindspot').update('connectionFile',selected[0].fsPath,true);
+        void vscode.window.showInformationMessage('Blindspot receiver configured. Open Coverage and start recording.');
+      } catch(error) {void vscode.window.showErrorMessage(error.message);}
+    },
     start,stop,resume,
     pause:()=>{if(current)current.desiredMode='paused';current?.collector?.pause();update();},
     reconnect:async()=>{if(current?.phase==='reconnecting')await recover(current);},
@@ -341,9 +350,9 @@ function activate(context) {
     },
     controls:async()=>{
       const choices=current?(current.phase==='reconnecting'?['Reconnect Now',current.desiredMode==='paused'?'Resume':'Pause','Stop','Open Local Inspector']:current.collector?[current.collector.mode==='paused'?'Resume':'Pause','Stop','Open Local Inspector','Add Pilot Marker']:['Stop','Open Local Inspector']):['Start','Open Local Inspector'];
-      choices.push('Show Codebase Overview','Show Recording Diagnostics','Toggle Visibility Exclusion');
+      choices.push('Connect to Receiver','Show Codebase Overview','Show Recording Diagnostics','Toggle Visibility Exclusion');
       const selected=await vscode.window.showQuickPick(choices,{title:'Blindspot recording controls'});
-      const mapping={'Start':'start','Pause':'pause','Resume':'resume','Stop':'stop','Reconnect Now':'reconnect','Open Local Inspector':'open','Add Pilot Marker':'marker','Show Codebase Overview':'overview','Show Recording Diagnostics':'diagnostics','Toggle Visibility Exclusion':'visibility'};
+      const mapping={'Connect to Receiver':'connect','Start':'start','Pause':'pause','Resume':'resume','Stop':'stop','Reconnect Now':'reconnect','Open Local Inspector':'open','Add Pilot Marker':'marker','Show Codebase Overview':'overview','Show Recording Diagnostics':'diagnostics','Toggle Visibility Exclusion':'visibility'};
       if(selected)await commands[mapping[selected]]();
     }
   };

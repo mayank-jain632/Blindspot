@@ -9,7 +9,7 @@ class ReceiverError extends Error {
   }
 }
 async function readConnection(filename) {
-  if(!filename)throw new ReceiverError('Set blindspot.connectionFile to the receiver connection.json, or launch with the supplied F5 configuration.','invalid_configuration',false,false);
+  if(!filename)throw new ReceiverError('Run Blindspot: Connect to Receiver and select the receiver connection.json.','invalid_configuration',false,false);
   const value=JSON.parse(await fs.readFile(filename,'utf8')),endpoint=new URL(value.endpoint);
   if(endpoint.protocol!=='http:'||endpoint.hostname!=='127.0.0.1'||endpoint.username||endpoint.password||endpoint.pathname!=='/'||endpoint.search||endpoint.hash||typeof value.token!=='string'||value.token.length<20)
     throw new ReceiverError('Connection must be an authenticated 127.0.0.1 HTTP receiver.','invalid_configuration',false,false);
