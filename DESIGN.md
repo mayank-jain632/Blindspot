@@ -41,12 +41,12 @@ plainly instead of promising complete historical tracking.
 
 The extension, receiver, SQLite store and React localhost dashboard are implemented.
 The dashboard uses the supplied design exports for a Map landing view, a Risk review queue, file
-detail, existing-quiz Review, a directory treemap, recorded activity, calibration
+detail, existing-quiz Review, a directory treemap, quiz calibration
 and PNG export. Unsupported comprehension and authorship metrics are omitted.
 See [the dashboard contract](reports/dashboard-contract.md) for the actual fields
 and design adaptations. Quiz generation remains paused.
 The earlier collector pilot worked, and automated checks cover the new build.
-The new desktop behavior has not yet been manually confirmed. We already have
+The final packaged desktop walkthrough still requires manual confirmation. We already have
 most of the infrastructure needed for a demo; further infrastructure is not the
 next milestone. Existing source, observations and quiz records remain intact.
 
@@ -82,3 +82,12 @@ The [roadmap](reports/roadmap-proposal.md) is deliberately short.
 [Earlier design details](reports/design-history.md) and
 [the 0.3 implementation report](reports/observer-03.md) remain historical context,
 not a checklist of prerequisites for presenting v1.
+
+## Packaged preview milestone
+
+The macOS/Linux preview uses a self-contained VSIX plus a companion Python wheel
+with the built dashboard. Public setup is in docs/release.md. Marketplace publishing
+is a separate step after installed-package verification and publisher selection.
+Python guides use AST boundaries; other languages use conservative code blocks.
+Practice passes do not lower whole-file review priority. Historical and rejected
+quiz results remain readable but do not provide current credit.

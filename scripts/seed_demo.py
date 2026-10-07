@@ -383,7 +383,7 @@ def record(store: SQLiteStore, root: Path, now: datetime):
         for name in names:
             text = FILES[name]
             store.append(event("snapshot", {"path": name, "text": text, "content_hash": digest(text), "line_count": len(text.split("\n")), "origin": "document"}, clock))
-            real = len(text.split("\n"))  # the dashboard counts the empty line after the final newline
+            real = len(text.split("\n")) - int(text.endswith("\n"))
             for start, end in [(a, min(b, real)) for a, b in SEEN.get(name) or [] if a <= real]:
                 clock += 1000
                 store.append(event("visibility", {"path": name, "content_hash": digest(text), "ranges": [[start, end]], "start_ms": clock - 1000, "end_ms": clock,

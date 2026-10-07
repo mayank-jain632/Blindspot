@@ -13,11 +13,24 @@ python3 -m venv .release-venv
 .release-venv/bin/python scripts/build_release.py
 ```
 
+Packages use [VS Code’s vsce tooling](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
+
 This produces `dist/blindspot_local-0.4.0-py3-none-any.whl` (receiver, built
 dashboard and fonts) and `dist/blindspot-observer-0.4.0.vsix` (extension and its
 assets). It inspects package contents and publishes nothing. The current
 `blindspot-local` publisher is a development ID; replace it with the confirmed
 Marketplace publisher before the final package. No public release URL exists yet.
+
+After building, run the isolated receiver smoke check and regenerate screenshots:
+
+```sh
+.release-venv/bin/python scripts/check_release.py
+npm --prefix dashboard run screenshots
+```
+
+Screenshot capture expects a development `.venv/bin/python` and Chrome. It creates
+and disposes its own seeded project. The sidebar screenshot is a webview preview,
+not evidence of a native VS Code walkthrough.
 
 ## Install and launch (user)
 
@@ -54,6 +67,19 @@ the selected code; keys and local-model explanations are unverified.
 ## Final installed-package walkthrough
 
 Use a clean VS Code profile with only the packaged extension, not F5:
+
+From the repository root, the verification profile can be opened with:
+
+```sh
+code --new-window \
+  --user-data-dir "$PWD/reports/local/release-vscode/profile" \
+  --extensions-dir "$PWD/reports/local/release-vscode/extensions" \
+  /absolute/path/to/your-git-project
+```
+
+The local verification installed `dist/blindspot-observer-0.4.0.vsix` in this
+profile. Start the packaged receiver as shown above and select its connection
+file in this window.
 
 1. Follow the user setup above from outside the Blindspot repository. Confirm Map
    loads and first-run says **No display recorded**.

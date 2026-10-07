@@ -52,3 +52,9 @@ file's priority. Optional Ollama explanations are local and unverified.
 - **Old dashboard:** refresh after installing the updated companion wheel.
 
 MIT licensed. Source and issues: [GitHub](https://github.com/mayank-jain632/Blindspot).
+
+## Preview
+
+![Local coverage dashboard](https://raw.githubusercontent.com/mayank-jain632/Blindspot/main/docs/screenshots/map.png)
+
+![Coverage sidebar webview preview](https://raw.githubusercontent.com/mayank-jain632/Blindspot/main/docs/screenshots/sidebar.png)

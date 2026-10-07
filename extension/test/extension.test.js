@@ -7,6 +7,7 @@ const fs=require('node:fs/promises');
 const os=require('node:os');
 const path=require('node:path');
 const {execFileSync}=require('node:child_process');
+const extensionEntry=process.env.BLINDSPOT_TEST_EXTENSION ? path.join(process.env.BLINDSPOT_TEST_EXTENSION,'extension.js') : '../extension';
 
 function deferred() {
   let resolve,reject;
@@ -64,7 +65,7 @@ async function withHost(run) {
   };
   const context={subscriptions:[]};let extension;
   try {
-    delete require.cache[require.resolve('../extension')];extension=require('../extension').activate(context);
+    delete require.cache[require.resolve(extensionEntry)];extension=require(extensionEntry).activate(context);
     host.command=name=>host.commands.get('blindspot.'+name)();
     await run(host);
   } finally {

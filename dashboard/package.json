@@ -6,7 +6,8 @@
   "scripts": {
     "build": "vite build",
     "test": "node --test test/*.test.js",
-    "test:browser": "node test/browser.mjs"
+    "test:browser": "node test/browser.mjs",
+    "screenshots": "node test/screenshots.mjs"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",

@@ -107,6 +107,7 @@ try {
   visibilityChanged = true;
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await expect(page.locator('.guide-sidebar .headline')).toHaveText('All seen');
+  expect(await page.locator('.guide-sidebar .headline').evaluate(el => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono');
   await page.unroute(config.url + '/api/dashboard');
   await page.unroute('**/api/dashboard/guide?**');
   await page.reload();
@@ -128,6 +129,7 @@ try {
     if (i < 2) await expect(page.locator('.question-panel h1')).toHaveText(`Question ${i+1}: first`);
   }
   await expect(page.getByRole('heading', { name: 'Quiz results' })).toBeVisible();
+  const completedUrl = page.url();
   expect(answerRequests).toHaveLength(3);
   for (const body of answerRequests) expect(Object.keys(body).sort()).toEqual(['attempt_id', 'chosen_index', 'confidence', 'question_id']);
   const reports = [];
@@ -183,6 +185,9 @@ try {
   await screenshot('empty');
   await page.getByRole('link', { name: 'Map', exact: true }).click();
   await expect(page.locator('.headline')).toHaveText('No display recorded');
+  await page.getByRole('link', { name: 'Learning', exact: true }).click();
+  await expect(page.getByText('No display recorded.', { exact: true })).toBeVisible();
+  await expect(page.locator('.learning-file')).toHaveCount(0);
   await page.getByRole('link', { name: 'Insights', exact: true }).click();
   await expect(page.getByText('No quizzes taken yet.', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Study a file', exact: true })).toBeVisible();
@@ -271,7 +276,7 @@ try {
   await expect(page.getByText('No files to share.', { exact: true })).toBeVisible();
   await expect(page.locator('canvas')).toHaveCount(0);
   await page.getByRole('link', { name: 'Learning', exact: true }).click();
-  await expect(page.getByText('No files to study.', { exact: true })).toBeVisible();
+  await expect(page.getByText('No display recorded.', { exact: true })).toBeVisible();
   await expect(page.locator('.learning-file')).toHaveCount(0);
   // Render the actual sidebar HTML at a narrow width, using the same local font files.
   const sidebar = await browser.newPage({ viewport: { width: 320, height: 1000 } });
@@ -294,6 +299,11 @@ try {
   expect(await sidebar.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(0, 0, 0)');
   await sidebar.screenshot({ path: resolve(project, 'reports/local/dashboard-checks/sidebar.png'), fullPage: true });
   await sidebar.close();
+  const completedAttempt = new URLSearchParams(new URL(completedUrl).hash.split('?')[1]).get('attempt_id');
+  const rejection = await page.request.post(config.url + '/api/dashboard/review/report', { headers: { Origin: config.url }, data: { attempt_id: completedAttempt, question_id: 'q1' } });
+  expect(rejection.ok()).toBeTruthy();
+  await page.goto(completedUrl);
+  await expect(page.getByText('Rejected answer key. Excluded from current results.', { exact: true })).toBeVisible();
   expect(external).toEqual([]);
   expect(failures).toEqual([]);
   console.log('Browser checks passed: Learning hub, lesson tabs, keyboard navigation, quiz draft preservation, model fallback, Risk, source, review, Map, Insights, PNG, empty states, mobile, and local-only requests.');

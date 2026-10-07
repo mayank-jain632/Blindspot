@@ -99,3 +99,23 @@ User approved removing Timeline from desktop/mobile navigation. Its dashboard vi
 ## Sidebar theme and file filter (2026-10-06)
 
 Sidebar 0.3.2 uses dashboard colors and bundled fonts, a small colored coverage grid, coverage bars and state-appropriate recording controls. Zero-gap files are omitted from its gap list. Both surfaces lead with percentage not seen. The Map search field now disables autofill and marks common password-manager ignore attributes; the screenshot's profile icon appears to be a browser-injected overlay, not application markup. A browser preview of the actual sidebar HTML checks narrow layout and fonts; native VS Code appearance still needs manual confirmation after reloading the extension host.
+
+## Packaged portfolio preview (2026-10-07)
+
+Current version: extension and receiver 0.4.0. MIT confirmed by the user. Build
+with `.venv/bin/python scripts/build_release.py`; artifacts are in ignored `dist/`.
+Public setup/native walkthrough: `docs/release.md`. Check results and limitations:
+`reports/release-readiness.md`. Assets are self-contained; Connect to Receiver
+replaces F5 for users. Guides refresh on visibility changes and display their own
+counted ranges. Non-Python/invalid Python guides use conservative blocks. Final
+newlines do not add phantom gaps. Practice passes no longer lower whole-file
+priority. Historical/rejected results remain readable. Explanation cache includes
+prompt inputs and local-model redirects are refused. Screenshots are current.
+
+165 Python, 38 extension and 8 frontend unit tests passed, plus browser regressions.
+VSIX CLI install passed in `reports/local/release-vscode`; 12 wiring/overview tests
+ran against installed code/assets with mocked APIs. Wheel smoke passed outside the
+checkout. Native installed-editor walkthrough and Linux verification remain manual.
+Publisher is still development `blindspot-local`; confirm before final rebuild.
+Nothing published. Next: user desktop acceptance, publisher/distribution decisions,
+then explicit publication approval. Automatic quiz generation remains deferred.

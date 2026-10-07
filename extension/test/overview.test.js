@@ -1,7 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
-const {safeFile,workspaceRoot,openOverview}=require('../overview');
+const extensionRoot=process.env.BLINDSPOT_TEST_EXTENSION||path.resolve(__dirname,'..');
+const {safeFile,workspaceRoot,openOverview}=require(path.join(extensionRoot,'overview.js'));
 test('overview navigation rejects traversal and symlink escape, accepts a local source',async()=>{
   const tmp=await fs.mkdtemp(path.join(os.tmpdir(),'blindspot-overview-'));
   try{
@@ -20,7 +21,7 @@ test('installed webview uses bundled assets, keeps token out of HTML, and restri
     const panel={webview:{cspSource:'vscode-resource:',asWebviewUri:uri=>({toString:()=>uri.fsPath}),postMessage:async m=>messages.push(m),onDidReceiveMessage:fn=>{listener=fn;return {dispose(){}};}},onDidDispose:fn=>{dispose=fn;},dispose(){dispose?.();}};
     const api={workspace:{isTrusted:true,workspaceFolders:[{uri:{scheme:'file',fsPath:root}}]},env:{},ViewColumn:{Beside:2},Uri:{file:fsPath=>({fsPath})},window:{createWebviewPanel:()=>panel}};
     global.fetch=async url=>({ok:true,json:async()=>url.endsWith('/api/health')?{workspace:root,capabilities:{overview:true}}:{files:[]}});
-    await fs.cp(path.resolve(__dirname,'../media'),path.join(tmp,'installed/media'),{recursive:true});
+    await fs.cp(path.join(extensionRoot,'media'),path.join(tmp,'installed/media'),{recursive:true});
     const context={extensionPath:path.join(tmp,'installed'),subscriptions:[]};
     await openOverview(api,{endpoint:'http://127.0.0.1:7777',token:'never-put-me-in-html'},context);
     assert.ok(panel.webview.html.includes('Content-Security-Policy'));

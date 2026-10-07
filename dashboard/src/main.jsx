@@ -86,7 +86,7 @@ function Source({ text, file, start = 1, review = false, trimTerminal = true }) 
   })}</pre></div>;
 }
 
-const GUIDE_LABELS = { unseen: 'Never seen', partial: 'Partly seen', seen: 'Seen' };
+const GUIDE_LABELS = { unseen: 'No display recorded', partial: 'Partly seen', seen: 'Seen' };
 function jumpTo(root, line) {
   const row = root?.querySelector(`[data-line="${line}"]`);
   if (!row) return;
@@ -262,8 +262,7 @@ function QuizBox({ file, item }) {
     <button className="guide-explain-button" onClick={() => start(done.set_id)}>Start quiz</button></div>;
   if (phase === 'idle' || phase === 'loading') return <>
     {offer && <button className="guide-explain-button" onClick={() => start(offer.set_id)}>Take quiz · {offer.question_count} questions</button>}
-    <p className="guide-meta dim">Pasting this prompt into another service shares the selected code.</p>
-    <button className="guide-quiz-button" disabled={phase === 'loading'} onClick={() => open(!offer)}>{phase === 'loading' ? 'Preparing' : offer ? 'Make another quiz' : 'Copy prompt'}</button>
+    <button title="Pasting a quiz prompt into another service shares the selected code." className="guide-quiz-button" disabled={phase === 'loading'} onClick={() => open(!offer)}>{phase === 'loading' ? 'Preparing' : offer ? 'Make another quiz' : 'Copy prompt'}</button>
     {error && <p className="notice" role="alert">{error}</p>}</>;
   return <div className="quiz-maker">
     <span className="eyebrow">Quiz for lines {made.start}–{made.end} · {made.question_count} questions</span>
@@ -290,6 +289,7 @@ function ReportQuestion({ attemptId, questionId }) {
 const CODE_CAP = 120;
 function Learning({ data }) {
   const [scope, setScope] = useState('gaps');
+  if (!data.has_observations) return <main className="standard-page"><Empty title="No display recorded">Start recording in VS Code, then open or scroll supported files to build a study guide.</Empty></main>;
   const known = data.files.filter(f => !f.current_uncertain);
   const gaps = known.filter(f => missingLines(f) > 0);
   const files = scope === 'gaps' ? gaps : known;
@@ -340,7 +340,7 @@ function LearningLesson({ file, guide, lines, local, chosen, pick, notes, explai
         <div id="lesson-panel" className="lesson-panel" role="tabpanel" aria-labelledby={`lesson-tab-${tab}`}>
           {tab === 'code' && <>{item.doc && <p className="dim">{item.doc}</p>}{lines ? <UnitSource lines={lines} item={item} file={file} /> : <p className="dim">Loading code.</p>}<a className="button-link" href={editor}>Open in VS Code</a></>}
           {tab === 'explanation' && <>{!local ? <p role="status">Checking for Ollama.</p> : local.available ? <><label className="select-label lesson-model">Model<select aria-label="Local model" value={chosen} onChange={e => pick(e.target.value)}>{local.models.map(model => <option key={model}>{model}</option>)}</select></label><ExplainBox label="Explain this unit" note={notes[`${item.start}-${item.end}`]} run={regenerate => explain(item, regenerate)} /></> : <><p className="dim">Ollama is not available. Code and quizzes work without it.</p><button onClick={() => setTab('code')}>Back to code</button></>}</>}
-          <div hidden={tab !== 'quiz'}><QuizBox key={`${file.content_hash}:${item.start}`} file={file} item={item} /></div>
+          <div hidden={tab !== 'quiz'}><p className="guide-meta dim">Quiz prompts include code. Pasting them into another service shares it.</p><QuizBox key={`${file.content_hash}:${item.start}`} file={file} item={item} /></div>
         </div>
         <div className="lesson-navigation"><button disabled={index === 0} onClick={() => choose(items[index - 1])}>← Previous unit</button><button disabled={index === items.length - 1} onClick={() => choose(items[index + 1])}>Next unit →</button></div>
       </> : <Empty title={guide.items.length ? 'No unseen code units' : 'No code units found'}>{guide.items.length ? 'Choose Whole file to revisit a section.' : 'Open the file in VS Code.'}</Empty>}
@@ -349,6 +349,7 @@ function LearningLesson({ file, guide, lines, local, chosen, pick, notes, explai
 }
 
 function GuidePage({ data, path, learning = false }) {
+  if (!data.has_observations) return <main className="standard-page"><Empty title="No display recorded">Start recording in VS Code, then open or scroll supported files to build a study guide.</Empty><a href="#map">Back to Map</a></main>;
   const file = data.files.find(f => f.path === path);
   if (!file) return <main className="standard-page"><Empty title="File not found">Choose a file in Risk to open its guide.</Empty><a className="button-link" href="#risk">Back to Risk</a></main>;
   return <GuideBody key={`${file.path}:${file.content_hash}:${learning}`} file={file} data={data} learning={learning} />;
@@ -356,13 +357,13 @@ function GuidePage({ data, path, learning = false }) {
 function GuideBody({ file, data, learning }) {
   const [guide, error] = useGuide(file);
   const [scope, setScope] = useState('unseen'), [open, setOpen] = useState(() => new Set()), [source, setSource] = useState(null), [copied, setCopied] = useState(false);
-  useEffect(() => { setNotes({}); }, [JSON.stringify(file.reported_ranges)]);
   const [local, setLocal] = useState(null), [model, setModel] = useState(() => { try { return localStorage.getItem('blindspot.model') || ''; } catch { return ''; } }), [notes, setNotes] = useState({});
   useEffect(() => {
     let cancelled = false;
     explainApi('/api/dashboard/explain/status').then(st => { if (!cancelled) setLocal(st); }).catch(() => { if (!cancelled) setLocal({ available: false, models: [], error: 'Cannot reach the local server.' }); });
     return () => { cancelled = true; };
   }, []);
+  useEffect(() => { setNotes({}); }, [JSON.stringify(file.reported_ranges)]);
   const chosen = local?.models.includes(model) ? model : local?.default || '';
   function pick(name) { setModel(name); try { localStorage.setItem('blindspot.model', name); } catch { /* storage unavailable */ } }
   async function explain(unit, regenerate = false) {
@@ -403,7 +404,7 @@ function GuideBody({ file, data, learning }) {
         <span className="eyebrow">Study guide</span>
         <h1 className="mono guide-file">{filename(file.path)}</h1>
         <p className="mono dim">{directory(file.path)}</p>
-        <div className={`headline ${guide.unseen_lines === 0 ? 'headline-words' : ''}`}>{guide.unseen_lines === 0 ? 'All seen' : `${number(guide.unseen_lines)} lines`}</div>
+        <div className={`headline mono ${guide.unseen_lines === 0 ? 'headline-words' : ''}`}>{guide.unseen_lines === 0 ? 'All seen' : `${number(guide.unseen_lines)} lines`}</div>
         <p>{guide.unseen_lines === 0 ? 'Every line has been on screen.' : `never on screen, across ${guide.overview.units_with_unseen} of ${guide.overview.units} code units`}</p>
       </div>
       <div className="rollup">
@@ -422,6 +423,7 @@ function GuideBody({ file, data, learning }) {
           : <p className="dim">Ollama is not available. The guide works without it.</p>}
       </div>
       <div className="rollup guide-actions">
+        <p className="guide-meta dim">Quiz prompts include code. Pasting them into another service shares it.</p>
         <details className="guide-export"><summary>Export guide</summary><button onClick={copy} disabled={items.length === 0}>{copied ? 'Copied' : 'Copy as Markdown'}</button><button onClick={() => window.print()}>Print</button></details>
         <a className="button-link" href={editor}>Open in VS Code</a>
         <a className="button-link" href="#risk">Back to Risk</a>
