@@ -100,7 +100,7 @@ not committed, so after `git pull` or a branch switch you must rebuild or the ol
 Open **http://127.0.0.1:7777**. If an older receiver is running, stop it with
 Ctrl+C in its terminal before restarting. The extension reconnects using the
 same `connection.json`; its existing F5 launch already points to this state.
-The extension also provides a **Blindspot** activity-bar sidebar with unseen coverage,
+The extension also provides a **Blindspot** activity-bar sidebar, themed like the dashboard with bundled fonts and a colored coverage grid, with unseen coverage,
 changed unseen lines, file shortcuts, recording controls, and **Full dashboard**.
 After updating the extension, restart the F5 Extension Development Host (or reload
 VS Code if installed), then click the Blindspot eye icon in the activity bar.

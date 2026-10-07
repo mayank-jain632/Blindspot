@@ -4,9 +4,16 @@ const {sidebarHtml,createSidebar}=require('../sidebar');
 const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
 test('sidebar escapes source paths, has a restrictive CSP, and does not display unsupported counts',()=>{
   const html=sidebarHtml({has_observations:true,totals:{line_count:10},health:{sessions:[]},files:[{path:'<img src=x onerror=evil()>',current_uncertain:false,unknown_lines:5,reported_lines:5,line_count:10,flagged:true}]},null,'nonce');
-  assert.ok(html.includes('50.0%')); assert.ok(html.includes('&lt;img'));
+  assert.ok(html.includes('50%')); assert.ok(html.includes('&lt;img'));
   assert.ok(!html.includes('<img')); assert.ok(html.includes("default-src 'none'"));
+  assert.ok(html.includes('Coverage at a glance'));
+  assert.ok(html.includes('color-mix'));
   assert.ok(!html.includes('style="')); assert.ok(html.includes('progress'));
+});
+test('paused sidebar offers resume and excludes zero-gap files from its gap list',()=>{
+  const html=sidebarHtml({has_observations:true,totals:{line_count:10,reported_lines:10},health:{sessions:[{connection_state:'connected',status:'paused'}]},files:[{path:'seen.py',current_uncertain:false,unknown_lines:0,reported_lines:10,line_count:10,flagged:true,review:{tested:true}}]},null,'nonce');
+  assert.ok(html.includes('data-action="resume"'));assert.ok(!html.includes('data-action="pause"'));
+  assert.ok(!html.includes('<h2>Files with gaps</h2>'));assert.ok(html.includes('No visibility gaps recorded.'));
 });
 test('sidebar validates workspace, keeps credentials out of HTML and restricts commands',async()=>{
   const temp=await fs.mkdtemp(path.join(os.tmpdir(),'blindspot-sidebar-')), original=global.fetch;

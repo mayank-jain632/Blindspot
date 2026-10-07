@@ -1,7 +1,9 @@
 import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+const { sidebarHtml } = createRequire(import.meta.url)('../../extension/sidebar.js');
 import { resolve } from 'node:path';
 
 const project = resolve(import.meta.dirname, '../..');
@@ -142,6 +144,8 @@ try {
   await expect(page.locator('.headline')).toHaveText('90.9%');
   await expect(page.getByText('30 of 33 lines not seen')).toBeVisible();
   expect(await page.locator('.headline').evaluate(el => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono');
+  await expect(page.getByRole('searchbox')).toHaveAttribute('autocomplete', 'off');
+  await expect(page.getByRole('searchbox')).toHaveAttribute('data-1p-ignore', 'true');
   await page.getByRole('searchbox').fill('b.py');
   await expect(page.locator('.map-cell')).toHaveCount(1);
   await expect(page.locator('.file-index button')).toHaveText('b.py');
@@ -258,6 +262,27 @@ try {
   await page.getByRole('link', { name: 'Learning', exact: true }).click();
   await expect(page.getByText('No files to study.', { exact: true })).toBeVisible();
   await expect(page.locator('.learning-file')).toHaveCount(0);
+  // Render the actual sidebar HTML at a narrow width, using the same local font files.
+  const sidebar = await browser.newPage({ viewport: { width: 320, height: 1000 } });
+  sidebar.on('pageerror', error => failures.push(error.message));
+  await sidebar.addInitScript(() => { window.acquireVsCodeApi = () => ({ postMessage() {} }); });
+  const sidebarData = await (await fetch(config.url + '/api/dashboard')).json();
+  const assetNames = readdirSync(resolve(project, 'blindspot/observer/dashboard_dist/assets'));
+  const sidebarAssets = { cspSource: new URL(config.url).origin };
+  for (const [id, prefix] of [['mono','ibm-plex-mono'],['body','eb-garamond'],['display','cormorant-garamond']]) sidebarAssets[id] = config.url + '/assets/' + assetNames.find(name => name.startsWith(prefix + '-latin-400-normal') && name.endsWith('.woff2'));
+  const sidebarMarkup = sidebarHtml(sidebarData, null, 'sidebar-preview', sidebarAssets);
+  await sidebar.route(config.url + '/sidebar-preview', route => route.fulfill({ contentType: 'text/html', body: sidebarMarkup }));
+  await sidebar.goto(config.url + '/sidebar-preview');
+  await sidebar.evaluate(() => document.fonts.ready);
+  await expect(sidebar.locator('.tile')).toHaveCount(2);
+  const isRecording = sidebarData.health.sessions.some(s => s.connection_state === 'connected' && s.status === 'recording');
+  await expect(sidebar.getByRole('button', { name: isRecording ? 'Pause' : 'Start recording', exact: true })).toBeVisible();
+  await expect(sidebar.getByRole('button', { name: 'Resume', exact: true })).toHaveCount(0);
+  expect(await sidebar.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  expect(await sidebar.locator('h1').evaluate(el => getComputedStyle(el).fontFamily)).toContain('IBM Plex Mono');
+  expect(await sidebar.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(0, 0, 0)');
+  await sidebar.screenshot({ path: resolve(project, 'reports/local/dashboard-checks/sidebar.png'), fullPage: true });
+  await sidebar.close();
   expect(external).toEqual([]);
   expect(failures).toEqual([]);
   console.log('Browser checks passed: Learning hub, lesson tabs, keyboard navigation, quiz draft preservation, model fallback, Risk, source, review, Map, Insights, PNG, empty states, mobile, and local-only requests.');

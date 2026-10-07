@@ -95,3 +95,7 @@ Everything is local; no analytics or telemetry are intended.
 ## Timeline removed (2026-10-06)
 
 User approved removing Timeline from desktop/mobile navigation. Its dashboard view is removed; old #timeline links redirect to Map. Activity storage and backend data remain intact. A future history view should track the unseen backlog rather than event volume.
+
+## Sidebar theme and file filter (2026-10-06)
+
+Sidebar 0.3.2 uses dashboard colors and bundled fonts, a small colored coverage grid, coverage bars and state-appropriate recording controls. Zero-gap files are omitted from its gap list. Both surfaces lead with percentage not seen. The Map search field now disables autofill and marks common password-manager ignore attributes; the screenshot's profile icon appears to be a browser-injected overlay, not application markup. A browser preview of the actual sidebar HTML checks narrow layout and fonts; native VS Code appearance still needs manual confirmation after reloading the extension host.

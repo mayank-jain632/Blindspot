@@ -2,7 +2,7 @@
   "name": "blindspot-observer",
   "displayName": "Blindspot Observer (Local Pilot)",
   "description": "Opt-in visible editor observations for the local Blindspot collector experiment.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "publisher": "blindspot-local",
   "private": true,
   "engines": {
