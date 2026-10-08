@@ -55,6 +55,26 @@ Local logs: ignored `reports/local/release-*.log`.
    split panes, recording controls, closed-file changes, guide refresh and restart.
 2. Confirm the Marketplace publisher ID, rebuild the VSIX, and choose companion
    wheel distribution (for example, a GitHub release asset).
-3. Linux remains untested on this Mac. Optional explanations use fake-model tests;
-   real model quality remains unverified.
+3. Native Linux VS Code interactions remain untested. The Linux receiver smoke
+   passed as documented below. Optional explanations use fake-model tests; real
+   model quality remains unverified.
 4. Publish only after explicit approval. No Marketplace/PyPI upload has occurred.
+
+## Linux receiver smoke — 2026-10-08
+
+Passed using Docker Desktop's Linux ARM64 engine, kernel 6.12.54-linuxkit,
+`python:3.11-slim` with Python 3.11.15 and Git installed inside the disposable
+container. Only `dist/` and `scripts/check_release.py` were mounted, read-only.
+The container ran `python /work/scripts/check_release.py` against the existing
+0.4.0 wheel; it was removed after exit.
+
+Verified: fresh virtual-environment install outside the checkout, packaged CLI
+startup, Git inventory, built dashboard/asset delivery, first-run state and
+Host/Origin rejection. Output: `reports/local/release-linux-smoke.log` (ignored).
+No implementation changes were required. This does not establish Linux desktop
+VS Code behavior, x86-64 coverage or Windows support.
+
+Windows currently fails because the receiver and review store import Unix-only
+`fcntl`. Supporting Windows also needs portable executable/setup paths and a
+native check of file paths/editor links. The extension intentionally rejects
+remote workspaces, including WSL, so that is not currently an alternative setup.

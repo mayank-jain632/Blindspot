@@ -96,5 +96,7 @@ file in this window.
    and confirm the completed result remains readable as rejected. Change its
    source and confirm results become historical, without current credit.
 
-Desktop interaction requires manual confirmation. Browser/HTTP tests and package
-inspection do not establish native VS Code behavior or Linux compatibility.
+Desktop interaction requires manual confirmation. The packaged receiver smoke
+passed on Linux ARM64 in Docker with Python 3.11. Browser/HTTP tests and package
+inspection do not establish native Linux VS Code behavior. See
+[verification details](../reports/release-readiness.md).

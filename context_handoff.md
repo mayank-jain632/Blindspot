@@ -119,3 +119,12 @@ checkout. Native installed-editor walkthrough and Linux verification remain manu
 Publisher is still development `blindspot-local`; confirm before final rebuild.
 Nothing published. Next: user desktop acceptance, publisher/distribution decisions,
 then explicit publication approval. Automatic quiz generation remains deferred.
+
+## Linux receiver verified (2026-10-08)
+
+Packaged 0.4.0 wheel smoke passed inside disposable Docker Linux ARM64
+(`python:3.11-slim`, Python 3.11.15, kernel 6.12.54-linuxkit). Tested fresh install,
+CLI/server, Git inventory, dashboard assets and Host/Origin rejection. No code
+changes required. Log: reports/local/release-linux-smoke.log. Native Linux VS Code
+walkthrough remains unverified; Windows is blocked by fcntl imports plus Unix
+setup paths. Release notes now distinguish receiver smoke from desktop testing.
