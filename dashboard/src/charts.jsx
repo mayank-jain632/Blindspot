@@ -12,16 +12,18 @@ export function Treemap({ files, onSelect }) {
   }, []);
   const root = layout(files, ...size);
   return <div className="treemap" ref={ref} aria-label="Files grouped by directory; area is line count">
-    {root.descendants().filter(n => n.children && n.depth > 0).map(n => <span className="directory-label" key={n.ancestors().map(x => x.data.name).join('/')}
+    {root.descendants().filter(n => n.children && n.depth > 0 && n.x1 - n.x0 >= 100 && n.y1 - n.y0 >= 70).map(n => <span className="directory-label" key={n.ancestors().map(x => x.data.name).join('/')}
       style={{ left: n.x0, top: n.y0, width: n.x1 - n.x0, height: 22 }}>{n.data.name}/</span>)}
     {root.leaves().filter(n => n.data.file).map(n => {
       const f = n.data.file, width = n.x1 - n.x0, height = n.y1 - n.y0;
       // Small cells keep exact area. The file index below supplies 44px controls.
       const roomy = width >= 44 && height >= 44;
-      const props = { className: `map-cell state-${f.state} ${!f.review.tested ? 'untested' : ''}`,
+      const named = width >= 90 && height >= 44;
+      const detailed = width >= 140 && height >= 100;
+      const props = { className: `map-cell ${named ? 'has-label' : ''} state-${f.state} ${!f.review.tested ? 'untested' : ''}`,
         style: { ...coverageStyle(f.reported_lines, f.line_count, f.current_uncertain), left: n.x0, top: n.y0, width, height },
-        title: `${f.path} · ${number(f.line_count)} lines · ${label(f.state)} · ${f.review.tested ? 'Tested' : 'Never tested'}` };
-      const content = width > 75 && height > 55 ? <><strong>{filename(f.path)}</strong><span>{label(f.state)}</span><small>{number(f.line_count)} lines</small></> : null;
+        title: `${f.path} · ${number(f.reported_lines)} of ${number(f.line_count)} lines seen · ${label(f.state)} · ${f.review.tested ? 'Tested' : 'Never tested'}` };
+      const content = named ? <><strong>{filename(f.path)}</strong>{detailed && <small>{number(f.reported_lines)} / {number(f.line_count)} seen</small>}</> : null;
       return roomy ? <button {...props} key={f.path} onClick={() => onSelect(f)} aria-label={`Inspect ${f.path}`}>{content}</button>
         : <span {...props} key={f.path} aria-hidden="true" />;
     })}

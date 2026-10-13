@@ -6,25 +6,27 @@ or understanding; Blindspot does not identify who wrote a change.
 
 **Preview release: macOS and Linux, local trusted Git workspaces only.** Requires
 VS Code 1.95+, Python 3.11+ and Git. Windows, SSH, WSL and Codespaces are unsupported.
-The extension needs the companion receiver. No account or model is required.
+The receiver and dashboard are bundled. No account or model is required.
 
 ## Install and connect
 
-Until a public release is published, obtain the wheel and VSIX built from this
-repository. Follow the [release setup instructions](https://github.com/mayank-jain632/Blindspot/blob/main/docs/release.md).
-
-1. Install the VSIX with **Extensions → … → Install from VSIX**.
-2. Install the companion wheel into a new Python virtual environment and run its
-   receiver for your Git checkout. The receiver includes the built dashboard;
-   Node is not needed to run it.
-3. Run **Blindspot: Connect to Receiver** from the command palette. Select the
-   `connection.json` path printed in the receiver terminal.
-4. Open the Blindspot eye icon in the activity bar. Choose **Start recording**,
+1. Install Blindspot from Marketplace or install the VSIX with
+   **Extensions → … → Install from VSIX**. Python 3.11+ and Git must be installed.
+2. Open one trusted local Git checkout in VS Code.
+3. Open the Blindspot eye icon in the activity bar. Choose **Start recording**,
    open or scroll a source file, then choose **Open full dashboard**.
 
+Blindspot starts its bundled local server automatically on a free port. No
+terminal command, pip install, or connection file selection is needed. The server
+stops when the extension shuts down; reopening the sidebar starts it again with
+your saved history. Stopping recording leaves the dashboard available.
+
 The dashboard refreshes every ten seconds and has a Refresh button. Pause, Resume
-and Stop are available in Coverage or the command palette. Keep the receiver
-terminal running. Restarting it with the same state directory preserves history.
+and Stop are available in Coverage or the command palette.
+Manual connection settings take priority. Clear **Blindspot: Connection File**
+in VS Code Settings to return to automatic discovery. Older receivers still need
+manual connection. Manually running a companion receiver remains an advanced
+option; a matching running receiver is reused and is not stopped by the extension.
 
 ## What is retained
 
@@ -33,9 +35,11 @@ files, plus paths, timestamps and visible ranges. It considers up to 500 candida
 files, skips files over 256 KiB and excludes generated/vendor folders, lockfiles,
 environment files and symlinks. These exclusions are not a secret detector.
 
-Everything is kept in the state directory you choose, outside the observed project.
-No telemetry is sent. Stop recording and stop the receiver before deleting that
-directory to remove its saved data. Earlier work outside recording is not visible.
+Everything is kept in VS Code's extension global storage, in a separate directory
+per project, outside the observed project. A manually managed receiver uses its
+chosen state directory. No telemetry is sent. Close the VS Code window before
+deleting managed data. The **Blindspot Observer** output channel shows its state
+directory. Earlier work outside recording is not visible.
 
 Study guides work without a model. Optional quizzes use generated, unverified
 answer keys. Copying a quiz prompt into another service shares the selected code
@@ -44,12 +48,14 @@ file's priority. Optional Ollama explanations are local and unverified.
 
 ## Troubleshooting
 
-- **Cannot connect:** start the receiver, select its connection file, and check
-  that VS Code opened the same Git checkout printed by the receiver.
+- **Cannot start:** install Python 3.11+ and Git, then reload VS Code. Check the
+  **Blindspot Observer** output channel for startup errors.
+- **Old manual connection:** clear **Blindspot: Connection File** in Settings to
+  use the automatic server.
 - **Unknown file:** resume recording, save the file and refresh.
 - **No display recorded:** start recording and open or scroll supported files.
 - **Receiver restarted:** allow reconnection, or run **Blindspot: Reconnect Now**.
-- **Old dashboard:** refresh after installing the updated companion wheel.
+- **Old dashboard:** update the extension, reload VS Code and reopen the dashboard.
 
 MIT licensed. Source and issues: [GitHub](https://github.com/mayank-jain632/Blindspot).
 

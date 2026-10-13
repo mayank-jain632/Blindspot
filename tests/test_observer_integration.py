@@ -1,6 +1,7 @@
 """Exercise real Node collector/transport against the Python loopback receiver."""
 from pathlib import Path
 import json
+import os
 import shutil
 import selectors
 import signal
@@ -125,7 +126,7 @@ class ObserverIntegrationTest(unittest.TestCase):
             state = base / "state"
             project = Path(__file__).resolve().parents[1]
             command = [sys.executable, "-B", "-m", "blindspot", "observer", "serve", "--workspace", str(workspace), "--state-dir", str(state), "--port", "0"]
-            receiver = subprocess.Popen(command, cwd=project, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            receiver = subprocess.Popen(command, cwd=project, env={**os.environ, "HOME": str(base)}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             try:
                 deadline = time.monotonic() + 5
                 connection = state / "connection.json"
@@ -134,6 +135,19 @@ class ObserverIntegrationTest(unittest.TestCase):
                 self.assertTrue(connection.exists(), "CLI did not publish connection file")
                 self.assertEqual(connection.stat().st_mode & 0o777, 0o600)
                 config = json.loads(connection.read_text())
+                discovery = base / ".local/share/blindspot/receivers"
+                while not list(discovery.glob("*.json")) and time.monotonic() < deadline:
+                    time.sleep(0.03)
+                advertisements = list(discovery.glob("*.json"))
+                self.assertEqual(len(advertisements), 1)
+                self.assertEqual(advertisements[0].stat().st_mode & 0o777, 0o600)
+                self.assertEqual(json.loads(advertisements[0].read_text()), {"workspace": str(workspace), "connection_file": str(connection)})
+                probe = subprocess.run(
+                    ["node", "-e", "require('./extension/transport').discoverConnection(process.argv[1],process.argv[2]).then(c=>console.log(c.endpoint)).catch(e=>{console.error(e.message);process.exit(1);})", str(workspace), str(discovery)],
+                    cwd=project, capture_output=True, text=True, timeout=5,
+                )
+                self.assertEqual(probe.returncode, 0, probe.stderr)
+                self.assertEqual(probe.stdout.strip(), config["endpoint"])
                 duplicate = subprocess.run(command, cwd=project, capture_output=True, text=True, timeout=5)
                 self.assertEqual(duplicate.returncode, 2)
                 self.assertIn("already using", duplicate.stderr)
@@ -147,6 +161,7 @@ class ObserverIntegrationTest(unittest.TestCase):
                 output, errors = receiver.communicate(timeout=5)
                 self.assertEqual(receiver.returncode, 0, errors)
                 self.assertFalse(connection.exists())
+                self.assertEqual(list(discovery.glob("*.json")), [])
                 report = subprocess.run([sys.executable, "-B", "-m", "blindspot", "observer", "report", "--workspace", str(workspace), "--state-dir", str(state)], cwd=project, capture_output=True, text=True, timeout=5)
                 self.assertEqual(report.returncode, 0, report.stderr)
                 self.assertEqual(json.loads(report.stdout)["event_counts"], {"session_start": 1, "session_end": 1})

@@ -111,7 +111,7 @@ export function layout(files, width, height) {
   }
   const root = hierarchy(tree).sum(d => d.size || 0).sort((a, b) => b.value - a.value || a.data.name.localeCompare(b.data.name));
   treemap().tile(treemapSquarify).size([width, height]).paddingOuter(2).paddingInner(3)
-    .paddingTop(node => node.depth > 0 && node.children ? 22 : 2).round(true)(root);
+    .paddingTop(node => node.depth > 0 && node.children && node.x1 - node.x0 >= 100 && node.y1 - node.y0 >= 70 ? 22 : 2).round(true)(root);
   return root;
 }
 

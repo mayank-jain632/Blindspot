@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import hmac
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -211,6 +212,14 @@ def serve(directory: Path, workspace: Path, port: int, review_directory: Path | 
         with os.fdopen(fd, "w") as target:
             json.dump({"endpoint": f"http://127.0.0.1:{server.server_address[1]}", "token": token}, target)
         temp.replace(connection)
+        discovery = Path.home() / ".local/share/blindspot/receivers"
+        discovery.mkdir(parents=True, exist_ok=True, mode=0o700)
+        advertisement = discovery / (hashlib.sha256(str(directory).encode()).hexdigest() + ".json")
+        advertisement_temp = advertisement.with_suffix(".tmp")
+        fd = os.open(advertisement_temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as target:
+            json.dump({"workspace": str(workspace), "connection_file": str(connection)}, target)
+        advertisement_temp.replace(advertisement)
         print(f"Observer: http://127.0.0.1:{server.server_address[1]}", flush=True)
         print(f"Workspace: {workspace}\nConnection file: {connection}\nSource snapshots stay in this local state directory.", flush=True)
         try:
@@ -220,4 +229,5 @@ def serve(directory: Path, workspace: Path, port: int, review_directory: Path | 
         finally:
             server.server_close()
             connection.unlink(missing_ok=True)
+            advertisement.unlink(missing_ok=True)
             journal.close()

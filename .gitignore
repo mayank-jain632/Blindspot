@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 .venv/
 .release-venv/
+.release-venv311/
+extension/receiver/
 *.egg-info/
 build/
 dist/

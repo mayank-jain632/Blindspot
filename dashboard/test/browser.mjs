@@ -304,6 +304,25 @@ try {
   expect(rejection.ok()).toBeTruthy();
   await page.goto(completedUrl);
   await expect(page.getByText('Rejected answer key. Excluded from current results.', { exact: true })).toBeVisible();
+  // A larger inventory must remain readable without wrapping text through tiles.
+  const dense = structuredClone(sidebarData);
+  dense.files = Array.from({ length: 140 }, (_, i) => ({ ...sidebarData.files[i % sidebarData.files.length],
+    path: `package-${i % 7}/src/group-${i % 4}/a-very-long-filename-${i}.py`,
+    line_count: 20 + (i % 13) * 30, reported_lines: 0 }));
+  dense.totals.line_count = dense.files.reduce((n, f) => n + f.line_count, 0);
+  dense.totals.reported_lines = 0;
+  await page.route('**/api/dashboard', route => route.fulfill({ json: dense }));
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(config.url + '/#map');
+  await expect(page.locator('.map-cell')).toHaveCount(140);
+  expect(await page.locator('.map-cell strong').count()).toBeLessThan(140);
+  expect(await page.locator('.map-cell strong').count()).toBeGreaterThan(0);
+  expect(await page.locator('.map-cell').evaluateAll(cells => cells.every(cell =>
+    [...cell.children].every(child => child.getBoundingClientRect().bottom <= cell.getBoundingClientRect().bottom + 1)
+  ))).toBeTruthy();
+  expect(await page.locator('.map-cell strong').evaluateAll(labels => labels.every(el => getComputedStyle(el).whiteSpace === 'nowrap'))).toBeTruthy();
+  expect(await page.locator('.directory-list').evaluate(el => el.scrollHeight > el.clientHeight)).toBeTruthy();
+  await screenshot('map-large-inventory');
   expect(external).toEqual([]);
   expect(failures).toEqual([]);
   console.log('Browser checks passed: Learning hub, lesson tabs, keyboard navigation, quiz draft preservation, model fallback, Risk, source, review, Map, Insights, PNG, empty states, mobile, and local-only requests.');

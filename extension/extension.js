@@ -28,6 +28,10 @@ function activate(context) {
   context.subscriptions.push(status);
   const output=vscode.window.createOutputChannel('Blindspot Observer');
   context.subscriptions.push(output);
+  const {ReceiverManager}=require('./receiver');
+  const receiver=new ReceiverManager(path.join(context.extensionPath||__dirname,'receiver'),
+    context.globalStorageUri?.fsPath||path.join(require('node:os').homedir(),'.local/share/blindspot/extension-state'),
+    message=>output.appendLine(message.trimEnd()));
   const live=run=>current===run&&!run.stopped;
   const recording=run=>live(run)&&run.collector?.mode==='recording';
   function update() {
@@ -68,7 +72,12 @@ function activate(context) {
     void vscode.window.showErrorMessage('Blindspot stopped recording: '+error.message+'. Check the receiver, then Start Recording for a new session.');
   }
   async function config() {
-    return readConnection(process.env.BLINDSPOT_CONNECTION_FILE||vscode.workspace.getConfiguration('blindspot').get('connectionFile'));
+    const filename=process.env.BLINDSPOT_CONNECTION_FILE||vscode.workspace.getConfiguration('blindspot').get('connectionFile');
+    if(filename)return readConnection(filename);
+    if(!vscode.workspace.isTrusted||vscode.env.remoteName)throw new Error('Open a trusted local Git workspace.');
+    const folders=(vscode.workspace.workspaceFolders||[]).filter(f=>f.uri.scheme==='file');
+    if(folders.length!==1)throw new Error('Open one local Git workspace.');
+    return receiver.ensure(await fs.realpath(folders[0].uri.fsPath));
   }
   function scheduleRecovery(run) {
     if(!live(run))return;
@@ -359,7 +368,7 @@ function activate(context) {
   for(const [name,handler] of Object.entries(commands))context.subscriptions.push(vscode.commands.registerCommand('blindspot.'+name,handler));
   context.subscriptions.push({dispose:()=>{void stop();}});
   if(vscode.window.registerWebviewViewProvider)context.subscriptions.push(vscode.window.registerWebviewViewProvider('blindspot.dashboard',require('./sidebar').createSidebar(vscode,context,config)));
-  shutdown=stop;
+  shutdown=async()=>{await stop();await receiver.dispose();};
   return {stop};
 }
 async function deactivate() { await shutdown(); }

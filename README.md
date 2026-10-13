@@ -18,12 +18,15 @@ reading or understanding. Recording stays on your machine. Copying a quiz prompt
 ## Install the packaged preview
 
 Supports **macOS/Linux**, Python 3.11+, Git and VS Code 1.95+. Windows and remote
-workspaces are unsupported. Install the VSIX plus the companion Python wheel;
-the wheel includes the dashboard and bundled fonts. Node is needed only to build.
+workspaces are unsupported. Install the extension, open a trusted local Git
+checkout, and click Start recording in the Blindspot sidebar. The VSIX bundles
+the receiver, dashboard and fonts. Node is needed only to build.
 
 Follow [the public setup and installed-package checklist](docs/release.md).
-Run **Blindspot: Connect to Receiver** and choose the connection file printed by
-the receiver. No F5 configuration or pilot directories are required.
+Blindspot starts the local server automatically and keeps each project's data in
+VS Code extension global storage. An existing matching receiver is reused.
+Manual selection remains available through **Blindspot: Connect to Receiver**.
+No terminal server command, pip install, or F5 configuration is required.
 
 Packages are prepared locally; no Marketplace or GitHub release is published yet.
 Recording saves supported source snapshots, including unopened files, in your
@@ -66,6 +69,9 @@ The CLI documentation below describes the earlier transcript/evidence and review
 workflow. Those commands and records remain available separately from the demo.
 
 ## Local setup and hosting
+
+This section is for development and optional manual hosting. Installed extensions
+start their bundled server automatically.
 
 Requirements: Python 3.11+, Node 22+, Git. Run these commands from the repository
 root. Create the virtual environment once if `.venv` does not already exist:
@@ -117,7 +123,8 @@ not committed, so after `git pull` or a branch switch you must rebuild or the ol
 
 Open **http://127.0.0.1:7777**. If an older receiver is running, stop it with
 Ctrl+C in its terminal before restarting. The extension reconnects using the
-same `connection.json`; select it with **Blindspot: Connect to Receiver**.
+same local discovery entry. If **Blindspot: Connection File** is set in Settings,
+that manual selection takes priority; clear it to enable automatic discovery.
 The extension also provides a **Blindspot** activity-bar sidebar, themed like the dashboard with bundled fonts and a colored coverage grid, with unseen coverage,
 changed unseen lines, file shortcuts, recording controls, and **Full dashboard**.
 After updating the extension, reload VS Code (restart F5 only during development), then click the Blindspot eye icon in the activity bar.

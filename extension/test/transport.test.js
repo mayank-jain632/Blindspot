@@ -1,11 +1,34 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {Transport,readConnection,MAX_BATCH_EVENTS,MAX_BATCH_BYTES,MAX_QUEUE_EVENTS}=require('../transport');
+const {Transport,readConnection,discoverConnection,MAX_BATCH_EVENTS,MAX_BATCH_BYTES,MAX_QUEUE_EVENTS}=require('../transport');
 const fs=require('node:fs/promises');
 const os=require('node:os');
 const path=require('node:path');
 const connection={endpoint:'http://127.0.0.1:7777',token:'x'.repeat(32)};
+test('discovery matches workspace, ignores stale entries, rejects ambiguity and re-reads restart credentials',async()=>{
+  const base=await fs.mkdtemp(path.join(os.tmpdir(),'blindspot-discovery-'));
+  try {
+    const root=await fs.realpath(base),directory=path.join(root,'receivers');await fs.mkdir(directory);
+    const filename=path.join(root,'connection.json');await fs.writeFile(filename,JSON.stringify(connection));
+    const advertise=async(name,workspace,file)=>fs.writeFile(path.join(directory,name),JSON.stringify({workspace,connection_file:file}));
+    await advertise('other.json','/other',filename);
+    await advertise('stale.json',root,path.join(root,'missing.json'));
+    await fs.writeFile(path.join(directory,'malformed.json'),'bad json');
+    let healthRoot=root;
+    const request=async()=>({ok:true,json:async()=>({workspace:healthRoot,receiver_id:'receiver',capabilities:{batch_events:true,heartbeat:true}})});
+    await assert.rejects(discoverConnection(root,directory,request),/No running receiver/);
+    await advertise('active.json',root,filename);
+    assert.deepEqual(await discoverConnection(root,directory,request),connection);
+    const restarted={...connection,token:'new-token'.repeat(4)};await fs.writeFile(filename,JSON.stringify(restarted));
+    assert.deepEqual(await discoverConnection(root,directory,request),restarted);
+    healthRoot='/different';await assert.rejects(discoverConnection(root,directory,request),/No running receiver/);healthRoot=root;
+    await advertise('second.json',root,filename);
+    await assert.rejects(discoverConnection(root,directory,request),/Multiple receivers/);
+    await fs.unlink(path.join(directory,'second.json'));
+    await assert.rejects(discoverConnection(root,directory,async()=>{throw new Error('offline');}),/No running receiver/);
+  } finally {await fs.rm(base,{recursive:true,force:true});}
+});
 test('network retry preserves the exact envelope and queue order',async()=>{
   const bodies=[];let calls=0;const failures=[];
   const transport=new Transport(connection,e=>failures.push(e),async(url,options)=>{bodies.push(options.body);if(calls++===0)throw new Error('ack lost');const count=JSON.parse(options.body).events.length;return {ok:true,json:async()=>({accepted:true,received:count,appended:count,duplicates:0})};});

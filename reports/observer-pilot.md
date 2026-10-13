@@ -2,9 +2,7 @@
 
 Current build: **0.3**. This document preserves the earlier pilot/results. Use
 [the current setup, desktop checks and SQL results](observer-03.md) for new runs.
-
-Status: first desktop pass audited; pause/resume and stop/start still need a
-follow-up. See [results and the two-minute follow-up](observer-pilot-results.md).
+Status: first desktop pass audited; pause/resume and stop/start still need a follow-up. See [results and the two-minute follow-up](observer-pilot-results.md).
 Automated checks exercise
 the protocol, collector, transport, and API wiring. They cannot establish how the
 real editor reports folds, reloads, or focus. The full visibility MVP comes later.

@@ -1,5 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises');
+const path=require('node:path');
+const os=require('node:os');
 const {performance}=require('node:perf_hooks');
 const BATCH_DELAY_MS=200,MAX_BATCH_EVENTS=64,MAX_BATCH_BYTES=2*1024*1024;
 const MAX_QUEUE_EVENTS=512,MAX_QUEUE_BYTES=8*1024*1024;
@@ -14,6 +16,24 @@ async function readConnection(filename) {
   if(endpoint.protocol!=='http:'||endpoint.hostname!=='127.0.0.1'||endpoint.username||endpoint.password||endpoint.pathname!=='/'||endpoint.search||endpoint.hash||typeof value.token!=='string'||value.token.length<20)
     throw new ReceiverError('Connection must be an authenticated 127.0.0.1 HTTP receiver.','invalid_configuration',false,false);
   return {endpoint:endpoint.origin,token:value.token};
+}
+async function discoverConnection(workspace,directory=path.join(os.homedir(),'.local/share/blindspot/receivers'),request=fetch) {
+  const root=await fs.realpath(workspace),matches=[];
+  let names;
+  try {names=await fs.readdir(directory);} catch(error) {if(error.code!=='ENOENT')throw error;names=[];}
+  await Promise.all(names.filter(name=>name.endsWith('.json')).map(async name=>{
+    try {
+      const entry=JSON.parse(await fs.readFile(path.join(directory,name),'utf8'));
+      if(entry.workspace!==root)return;
+      const connection=await readConnection(entry.connection_file);
+      const probe=new Transport(connection,()=>{},request);
+      const health=await probe.health();
+      if(health.workspace===root)matches.push(connection);
+    } catch {} // Ignore stale advertisements and receivers that are no longer running.
+  }));
+  if(matches.length===1)return matches[0];
+  if(matches.length>1)throw new ReceiverError('Multiple receivers are running for this project. Stop the extra receiver or use Blindspot: Connect to Receiver to select one.','invalid_configuration',false,false);
+  throw new ReceiverError('No running receiver found for this project. Start the companion receiver, then try again. For older receivers, use Blindspot: Connect to Receiver.','no_receiver',false,false);
 }
 class Transport {
   constructor(connection,onFailure,request=fetch,options={}) {
@@ -37,7 +57,7 @@ class Transport {
     let response,data;
     try {
       response=await this.request(this.connection.endpoint+route,{
-        method:body===undefined?'GET':'POST',headers,body,signal:AbortSignal.timeout(2000)
+        method:body===undefined?'GET':'POST',headers,body,redirect:'error',signal:AbortSignal.timeout(2000)
       });
       data=await response.json();
     } catch(error) {
@@ -140,4 +160,4 @@ class Transport {
     return new Promise(resolve=>this.waiters.push(resolve));
   }
 }
-module.exports={Transport,ReceiverError,readConnection,BATCH_DELAY_MS,MAX_BATCH_EVENTS,MAX_QUEUE_EVENTS,MAX_BATCH_BYTES};
+module.exports={Transport,ReceiverError,readConnection,discoverConnection,BATCH_DELAY_MS,MAX_BATCH_EVENTS,MAX_QUEUE_EVENTS,MAX_BATCH_BYTES};

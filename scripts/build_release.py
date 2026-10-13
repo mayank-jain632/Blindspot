@@ -1,5 +1,6 @@
 """Build local release artifacts. Does not publish or upload anything."""
 from pathlib import Path
+import importlib.util
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,14 @@ def run(*args, cwd=ROOT):
 
 
 def main():
+    try:
+        build_available = importlib.util.find_spec("build.__main__") is not None
+    except ModuleNotFoundError:
+        build_available = False
+    if not build_available:
+        raise SystemExit(
+            f"Missing Python build tool. Install it with: {sys.executable} -m pip install build"
+        )
     run("npm", "--prefix", "dashboard", "ci")
     run("npm", "--prefix", "dashboard", "run", "build")
     for name in ("index.html", "app.js", "style.css"):
@@ -21,6 +30,13 @@ def main():
     out = ROOT / "dist"
     out.mkdir(exist_ok=True)
     run(sys.executable, "-m", "build", "--wheel")
+    bundled = ROOT / "extension/receiver"
+    if bundled.exists():
+        shutil.rmtree(bundled)
+    with zipfile.ZipFile(out / "blindspot_local-0.4.0-py3-none-any.whl") as wheel:
+        for name in wheel.namelist():
+            if name.startswith("blindspot/"):
+                wheel.extract(name, bundled)
     run("npm", "ci", cwd=ROOT / "extension")
     vsce = ROOT / "extension/node_modules/.bin/vsce"
     run(str(vsce), "package", "--no-dependencies", "--out", str(out / "blindspot-observer-0.4.0.vsix"), cwd=ROOT / "extension")
@@ -32,6 +48,8 @@ def main():
     with zipfile.ZipFile(out / "blindspot-observer-0.4.0.vsix") as vsix:
         names = vsix.namelist()
         assert "extension/media/overview/index.html" in names
+        assert "extension/receiver/blindspot/observer/server.py" in names
+        assert "extension/receiver/blindspot/observer/dashboard_dist/index.html" in names
         assert "extension/license.txt" in {n.lower() for n in names}
         assert "extension/readme.md" in {n.lower() for n in names}
         assert not any("node_modules/" in n or n.startswith("extension/test/") for n in names)
