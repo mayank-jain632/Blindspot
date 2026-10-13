@@ -129,6 +129,12 @@ progress::-moz-progress-bar { background: var(--sun); }
 .map-cell, .directory-label { position: absolute; }
 .map-cell { border: none; border-radius: 0; padding: 0; background-color: var(--fill); color: var(--on); overflow: hidden; text-align: left; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: flex-start; }
 .map-cell.has-label { padding: 8px; }
+.directory-cell.has-label { padding: 10px; }
+.directory-cell strong { font-size: 14px; }
+.directory-cell span { margin-top: 8px; }
+.map-breadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: -12px 0 12px; }
+.map-breadcrumbs button { background: transparent; border-color: transparent; min-height: 44px; padding: 8px; }
+.map-breadcrumbs button[aria-current] { color: var(--accent); }
 .coverage-scale { height: 12px; width: 100%; background: linear-gradient(90deg, var(--coverage-red), var(--coverage-yellow)); }
 .coverage-labels { display: flex; justify-content: space-between; font: 10px var(--mono); color: var(--text-label); }
 .coverage-legend .swatch { width: 12px; height: 12px; }

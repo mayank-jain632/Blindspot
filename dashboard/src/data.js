@@ -115,6 +115,67 @@ export function layout(files, width, height) {
   return root;
 }
 
+export function mapEntries(files, scope = 'all') {
+  const prefix = scope === 'all' || scope === '' ? '' : scope + '/';
+  const visible = files.filter(f => scope === 'all' || (scope === '' ? !f.path.includes('/') : f.path.startsWith(prefix)));
+  const entries = [];
+  const buckets = new Map();
+  for (const file of visible) {
+    const remainder = file.path.slice(prefix.length);
+    if (!remainder.includes('/')) {
+      if (scope === 'all') {
+        if (!buckets.has('')) buckets.set('', []);
+        buckets.get('').push(file);
+      } else entries.push({ file, name: filename(file.path), lines: file.line_count });
+    } else {
+      const name = prefix + remainder.split('/')[0];
+      if (!buckets.has(name)) buckets.set(name, []);
+      buckets.get(name).push(file);
+    }
+  }
+  function addGroup(name, members, expand = false) {
+    if (name) {
+      const parts = new Map();
+      let loose = false;
+      for (const f of members) {
+        const rest = f.path.slice(name.length + 1);
+        if (!rest.includes('/')) { loose = true; break; }
+        const child = name + '/' + rest.split('/')[0];
+        if (!parts.has(child)) parts.set(child, []);
+        parts.get(child).push(f);
+      }
+      // Skip wrapper folders and expose their meaningful subdirectories at overview.
+      if (!loose && (parts.size === 1 || expand)) {
+        for (const [child, children] of parts) addGroup(child, children);
+        return;
+      }
+      if (expand) {
+        const direct = members.filter(f => !f.path.slice(name.length + 1).includes('/'));
+        const nested = members.filter(f => !direct.includes(f));
+        if (nested.length) {
+          addGroup(name, direct);
+          entries.at(-1).name = `${name}/ (files)`;
+          const children = new Map();
+          for (const f of nested) {
+            const child = name + '/' + f.path.slice(name.length + 1).split('/')[0];
+            if (!children.has(child)) children.set(child, []);
+            children.get(child).push(f);
+          }
+          for (const [child, childrenFiles] of children) addGroup(child, childrenFiles);
+          return;
+        }
+      }
+    }
+    if (!members.length) return;
+    entries.push({ directory: name, name: name || './', files: members,
+      lines: members.reduce((sum, f) => sum + f.line_count, 0),
+      seen: members.reduce((sum, f) => sum + (f.current_uncertain ? 0 : f.reported_lines), 0),
+      uncertain: members.some(f => f.current_uncertain), tested: members.every(f => f.review.tested) });
+  }
+  for (const [name, members] of buckets) addGroup(name, members, scope === 'all');
+  return entries;
+}
+
 export function directories(files) {
   const grouped = new Map();
   for (const file of files) {

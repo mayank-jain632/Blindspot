@@ -1,7 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calendarAxis, coverageColor, coverageRatio, coverageStyle, gapSummary, guideItems, guideMarkdown, layout, lineSpan, missingLines, percent, inRanges, rangeText } from '../src/data.js';
+import { calendarAxis, coverageColor, coverageRatio, coverageStyle, gapSummary, guideItems, guideMarkdown, layout, mapEntries, lineSpan, missingLines, percent, inRanges, rangeText } from '../src/data.js';
+
+test('directory overview exposes src subdirectories without duplicating files and supports drill-down', () => {
+  const files = ['src/main.js','src/catalog/models.py','src/catalog/search.py','src/billing/fines.py','README.md'].map(path => ({path,line_count:10,reported_lines:5,current_uncertain:false,review:{tested:false}}));
+  const entries=mapEntries(files);
+  assert.deepEqual(entries.map(e=>e.directory).sort(),['','src','src/billing','src/catalog']);
+  assert.equal(entries.reduce((n,e)=>n+e.lines,0),50);
+  assert.equal(entries.flatMap(e=>e.files).length,5);
+  assert.deepEqual(mapEntries(files,'src/catalog').map(e=>e.file.path).sort(),['src/catalog/models.py','src/catalog/search.py']);
+  assert.deepEqual(mapEntries(files,'').map(e=>e.file.path),['README.md']);
+  assert.ok(mapEntries(files,'src').some(e=>e.directory==='src/catalog'));
+});
 
 test('squarified layout includes every file once and preserves line area', () => {
   const files = [{ path: 'src/nested/one.py', line_count: 90 }, { path: 'src/nested/two.py', line_count: 10 }, { path: 'readme.md', line_count: 20 }];

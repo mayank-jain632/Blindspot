@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
+import { hierarchy, treemap, treemapSquarify } from 'd3-hierarchy';
 import { coverageColor, coverageStyle, gapSummary, filename, layout, number, label } from './data';
 
 export function Treemap({ files, onSelect }) {
@@ -26,6 +27,31 @@ export function Treemap({ files, onSelect }) {
       const content = named ? <><strong>{filename(f.path)}</strong>{detailed && <small>{number(f.reported_lines)} / {number(f.line_count)} seen</small>}</> : null;
       return roomy ? <button {...props} key={f.path} onClick={() => onSelect(f)} aria-label={`Inspect ${f.path}`}>{content}</button>
         : <span {...props} key={f.path} aria-hidden="true" />;
+    })}
+  </div>;
+}
+
+export function DirectoryMap({ entries, onDirectory, onSelect, observed }) {
+  const ref = useRef(null);
+  const [size, setSize] = useState([900, 600]);
+  useLayoutEffect(() => {
+    const measure = () => { const box = ref.current.getBoundingClientRect(); setSize([box.width, box.height]); };
+    measure(); const observer = new ResizeObserver(measure); observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+  const root = hierarchy({ children: entries }).sum(d => d.lines || 0).sort((a,b) => b.value - a.value);
+  treemap().tile(treemapSquarify).size(size).paddingInner(6).round(true)(root);
+  return <div className="treemap directory-map" ref={ref} aria-label="Directory coverage; select a directory to explore">
+    {root.leaves().filter(n => n.data.file || n.data.files).map(n => {
+      const entry = n.data, file = entry.file, width = n.x1 - n.x0, height = n.y1 - n.y0;
+      const seen = file ? file.reported_lines : entry.seen, uncertain = file ? file.current_uncertain : entry.uncertain;
+      const tested = file ? file.review.tested : entry.tested;
+      const caption = !observed || uncertain ? 'Unknown' : `${Math.floor(100 * seen / (entry.lines || 1))}% seen`;
+      const title = `${file ? file.path : entry.name} · ${number(seen)} of ${number(entry.lines)} lines seen${file ? '' : ` · ${entry.files.length} files`} · ${tested ? 'Tested' : 'Contains untested code'}`;
+      const props = { className: `map-cell directory-cell ${width >= 90 && height >= 44 ? 'has-label' : ''} ${!tested ? 'untested' : ''}`,
+        style: { ...coverageStyle(seen, entry.lines, uncertain || !observed), left:n.x0, top:n.y0, width,height }, title };
+      const content = width >= 90 && height >= 44 ? <><strong>{entry.name}</strong>{width >= 120 && height >= 90 && <span>{caption}</span>}{width >= 150 && height >= 120 && <small>{file ? `${number(entry.lines)} lines` : `${number(entry.files.length)} ${entry.files.length === 1 ? 'file' : 'files'} · ${number(entry.lines)} lines`}</small>}</> : null;
+      return width >= 44 && height >= 44 ? <button {...props} key={file?.path ?? entry.directory} aria-label={file ? `Inspect ${file.path}` : `Explore ${entry.name}`} onClick={() => file ? onSelect(file) : onDirectory(entry.directory)}>{content}</button> : <span {...props} key={file?.path ?? entry.directory} aria-hidden="true" />;
     })}
   </div>;
 }

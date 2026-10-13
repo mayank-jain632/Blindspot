@@ -9,7 +9,8 @@ import '@fontsource/cormorant-garamond/latin-400.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-600.css';
 import { api, coverageRatio, coverageStyle, explainApi, directory, directories, filename, gapSummary, guideItems, guideMarkdown, GUIDE_STATES, inRanges, label, lineSpan, quizForUnit, missingLines, number, percent, rangeText } from './data';
-import { drawShare, Treemap } from './charts';
+import { drawShare, Treemap, DirectoryMap } from './charts';
+import { mapEntries } from './data';
 import './style.css';
 
 function Empty({ title, children }) { return <p className="empty-line"><strong>{title}.</strong> {children}</p>; }
@@ -59,7 +60,8 @@ function Risk({ data, inspect }) {
 function MapView({ data, inspect }) {
   const gap = gapSummary(data);
   const [dir, setDir] = useState('all'), [search, setSearch] = useState('');
-  const files = data.files.filter(f => (dir === 'all' || directory(f.path) === dir) && f.path.toLowerCase().includes(search.toLowerCase()));
+  const files = data.files.filter(f => (dir === 'all' || (dir === '' ? !f.path.includes('/') : f.path.startsWith(dir + '/'))) && f.path.toLowerCase().includes(search.toLowerCase()));
+  const crumbs = dir === 'all' ? [] : dir ? dir.split('/').map((part, i, parts) => ({ name: part, path: parts.slice(0, i + 1).join('/') })) : [{ name: 'Root files', path: '' }];
   return <main className="map-layout"><aside className="map-sidebar"><div className="rollup"><span className="eyebrow">Not seen</span>
     <div className={`headline mono ${!gap.known ? 'headline-words' : ''}`}>{gap.headline}</div>
     <p className="mono dim">{gap.known ? `${number(gap.gap)} of ${number(data.totals.line_count)} lines not seen` : gap.detail}</p>
@@ -68,9 +70,10 @@ function MapView({ data, inspect }) {
     {data.files.length > 0 && <details className="rollup map-directories" open={window.innerWidth > 760}><summary>Directories · gaps first</summary><button className="directory-reset" aria-pressed={dir === 'all'} onClick={() => setDir('all')}>All directories</button><div className="directory-list">{directories(data.files).map(d => <button className="directory-row" key={d.name} aria-pressed={dir === d.name} onClick={() => setDir(d.name)} title={`Filter ${d.name}`}>
       <span>{d.name}</span><span>{data.has_observations && d.lines ? `${percent(d.lines - d.reported, d.lines)}% not seen` : 'Unknown'}</span>{data.has_observations && d.lines > 0 && <progress style={coverageStyle(d.reported, d.lines)} title="Lines not seen in this directory" max={d.lines} value={d.lines - d.reported} />}<small>{number(d.files)} files · {number(d.lines)} lines{d.uncertain ? ` · ${d.uncertain} unknown` : ''}</small>
     </button>)}</div></details>}
-    <details className="rollup coverage-legend" open={window.innerWidth > 760}><summary>Coverage legend</summary><div className="coverage-scale" /><div className="coverage-labels"><span>0%</span><span>Below 100%</span></div><div className="legend"><div><span className="swatch" style={coverageStyle(1, 1)} /><span>100% seen</span></div><div><span className="swatch state-uncertain" /><span>Unknown</span></div></div><p className="mono dim">Hatched = never tested</p></details></aside>
+    <details className="rollup coverage-legend" open={window.innerWidth > 760}><summary>Coverage legend</summary><div className="coverage-scale" /><div className="coverage-labels"><span>0%</span><span>Below 100%</span></div><div className="legend"><div><span className="swatch" style={coverageStyle(1, 1)} /><span>100% seen</span></div><div><span className="swatch state-uncertain" /><span>Unknown</span></div></div><p className="mono dim">Hatched = contains untested code</p></details></aside>
     <section className="map-main"><div className="map-toolbar mono"><label className="map-search">Find a file<input type="search" name="blindspot-file-filter" autoComplete="off" autoCapitalize="none" spellCheck={false} data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-form-type="other" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search files or paths" /></label><span>Size: lines</span><a className="button-link" href="#share">Export PNG</a></div>
-      {data.files.length ? <>{files.length ? <Treemap files={files} onSelect={inspect} /> : <Empty title="No matching files">Change the search or select All directories.</Empty>}<details className="file-index" open={!!search}><summary>File index · {number(files.length)} files</summary><div>{files.map(f => <button key={f.path} onClick={() => inspect(f)}>{f.path}</button>)}</div></details></> : <Empty title="No files to map">Open a Git project in VS Code.</Empty>}
+      <nav className="map-breadcrumbs mono" aria-label="Map location"><button aria-current={dir === 'all' ? 'location' : undefined} onClick={() => setDir('all')}>All directories</button>{crumbs.map(c => <React.Fragment key={c.path}><span>/</span><button aria-current={dir === c.path ? 'location' : undefined} onClick={() => setDir(c.path)}>{c.name}</button></React.Fragment>)}</nav>
+      {data.files.length ? <>{files.length ? search ? <Treemap files={files} onSelect={inspect} /> : <DirectoryMap entries={mapEntries(data.files, dir)} onDirectory={setDir} onSelect={inspect} observed={data.has_observations} /> : <Empty title="No matching files">Change the search or select All directories.</Empty>}<details className="file-index" open={!!search}><summary>File index · {number(files.length)} files</summary><div>{files.map(f => <button key={f.path} onClick={() => inspect(f)}>{f.path}</button>)}</div></details></> : <Empty title="No files to map">Open a Git project in VS Code.</Empty>}
     </section></main>;
 }
 

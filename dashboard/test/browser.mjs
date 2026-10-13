@@ -152,6 +152,8 @@ try {
   await expect(page.locator('.risk-table tbody tr').first()).toContainText('Sample passed');
   await expect(page.locator('.risk-table tbody tr').first().locator('.untested')).toHaveCount(0);
   await page.getByRole('link', { name: 'Map', exact: true }).click();
+  await expect(page.locator('.map-cell')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Explore ./', exact: true }).click();
   await expect(page.locator('.map-cell')).toHaveCount(2);
   await expect(page.locator('.map-cell.untested')).toHaveCount(1);
   await expect(page.locator('.headline')).toHaveText('90.3%');
@@ -314,14 +316,19 @@ try {
   await page.route('**/api/dashboard', route => route.fulfill({ json: dense }));
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(config.url + '/#map');
-  await expect(page.locator('.map-cell')).toHaveCount(140);
-  expect(await page.locator('.map-cell strong').count()).toBeLessThan(140);
+  await expect(page.locator('.map-cell')).toHaveCount(7);
+  await page.getByRole('button', { name: 'Explore package-0/src', exact: true }).click();
+  await expect(page.locator('.map-cell')).toHaveCount(4);
+  await page.getByRole('button', { name: 'Explore package-0/src/group-0', exact: true }).click();
+  await expect(page.locator('.map-cell')).toHaveCount(5);
   expect(await page.locator('.map-cell strong').count()).toBeGreaterThan(0);
   expect(await page.locator('.map-cell').evaluateAll(cells => cells.every(cell =>
     [...cell.children].every(child => child.getBoundingClientRect().bottom <= cell.getBoundingClientRect().bottom + 1)
   ))).toBeTruthy();
   expect(await page.locator('.map-cell strong').evaluateAll(labels => labels.every(el => getComputedStyle(el).whiteSpace === 'nowrap'))).toBeTruthy();
   expect(await page.locator('.directory-list').evaluate(el => el.scrollHeight > el.clientHeight)).toBeTruthy();
+  await page.getByRole('navigation', { name: 'Map location' }).getByRole('button', { name: 'All directories' }).click();
+  await expect(page.locator('.map-cell')).toHaveCount(7);
   await screenshot('map-large-inventory');
   expect(external).toEqual([]);
   expect(failures).toEqual([]);
