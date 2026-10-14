@@ -5,6 +5,7 @@ __pycache__/
 .release-venv/
 .release-venv311/
 extension/receiver/
+extension/runtime/
 *.egg-info/
 build/
 dist/

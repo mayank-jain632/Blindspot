@@ -128,3 +128,19 @@ CLI/server, Git inventory, dashboard assets and Host/Origin rejection. No code
 changes required. Log: reports/local/release-linux-smoke.log. Native Linux VS Code
 walkthrough remains unverified; Windows is blocked by fcntl imports plus Unix
 setup paths. Release notes now distinguish receiver smoke from desktop testing.
+
+## Self-contained runtime release (2026-10-14)
+
+Current release is 0.4.1, publisher mayank-jain. Extension bundles standalone
+CPython; users need VS Code + Git, no Python/pip/Node/server commands. Four
+platform VSIX packages cover darwin/linux x64/arm64, with native convenience
+copy dist/blindspot-observer-0.4.1.vsix. Build: .release-venv311/bin/python
+scripts/build_release.py --all-targets. Pins: scripts/python-runtimes.json.
+Runtime verifies/extracts its bundled archive into global storage and launches
+in isolated mode. No runtime download. Root/extension README are user-facing;
+docs/release.md is maintainers only; old CLI docs moved to docs/legacy-cli.md.
+41 packaged extension tests, Linux arm64/x64 no-Python container startup, 165
+bundled-interpreter Python tests, 9 frontend unit tests and wheel smoke pass.
+Intel runtime imports checked under Rosetta; native Intel/Linux editor checks
+still need manual testing. See reports/release-readiness.md for evidence.
+Nothing published; use explicit approval before Marketplace/GitHub releases.

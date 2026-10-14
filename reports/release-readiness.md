@@ -1,3 +1,35 @@
+# Self-contained release verification — 2026-10-14
+
+Version 0.4.1, publisher `mayank-jain`. Nothing published.
+
+- Four platform VSIX packages bundle CPython 3.12.14, the Python companion,
+  dashboard, fonts and upstream notices. Marketplace selects the platform.
+- Runtime archives are pinned by SHA-256, verified at build and first launch,
+  and extracted locally. No runtime network download or system Python lookup.
+- Launch uses Python isolated mode, ignoring user PYTHONHOME/PYTHONPATH.
+- Public README and Marketplace README explain the product and installation
+  directly. Maintainer setup and historical CLI commands are separate.
+- 41 extension tests passed against the actual extracted Apple Silicon VSIX.
+  Startup test removes Python from PATH and supplies invalid Python settings.
+- Linux ARM64 and x64 packaged startup, Git inventory, dashboard assets,
+  Host/Origin rejection and shutdown passed in Node containers without Python.
+  Linux x64 ran under Docker emulation on Apple Silicon.
+- Intel macOS runtime imported SQLite, fcntl and SSL under Rosetta. Native Intel
+  VS Code interaction has not been tested.
+- 165 Python tests passed using the bundled Apple Silicon interpreter; 9
+  frontend unit tests and the optional installed-wheel smoke passed.
+- Native installed-editor recording/pause/restart acceptance remains a user
+  walkthrough. Container/Node checks do not prove native VS Code behavior.
+
+Artifacts: `dist/blindspot-observer-0.4.1-{darwin-arm64,darwin-x64,linux-arm64,linux-x64}.vsix`.
+Native convenience copy: `dist/blindspot-observer-0.4.1.vsix`.
+Logs: `reports/local/bundled-{vsix-tests,linux-arm64,linux-x64,python-suite}.log`.
+
+Git is still required. Windows, remote workspaces and Alpine/musl are unsupported.
+The sections below are historical evidence, not current installation instructions.
+
+---
+
 # Packaged preview verification — 2026-10-07
 
 Scope: public portfolio MVP, macOS/Linux targets. Nothing published.

@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 import venv
 
 ROOT = Path(__file__).resolve().parents[1]
+VERSION = json.loads((ROOT / "extension/package.json").read_text())["version"]
 
 
 def main():
@@ -18,7 +19,7 @@ def main():
         base = Path(temporary).resolve()
         venv.create(base / "venv", with_pip=True)
         python = base / "venv/bin/python"
-        subprocess.run([str(python), "-m", "pip", "install", "--no-deps", str(ROOT / "dist/blindspot_local-0.4.0-py3-none-any.whl")], cwd=base, check=True)
+        subprocess.run([str(python), "-m", "pip", "install", "--no-deps", str(ROOT / f"dist/blindspot_local-{VERSION}-py3-none-any.whl")], cwd=base, check=True)
         project = base / "project"
         project.mkdir()
         (project / "sample.py").write_text("def total(values):\n    return sum(values)\n")

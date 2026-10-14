@@ -1,118 +1,88 @@
-# Local release setup
+# Maintainer release procedure
 
-Preview supports macOS/Linux, VS Code 1.95+, Python 3.11+ and Git. Use one trusted
-local Git checkout per receiver. Windows and remote workspaces are unsupported.
+This document is for development and release verification. It is not part of the
+user installation path. User instructions live directly in the root and extension
+README files. Version 0.4.1 bundles the runtime, companion, dashboard and fonts.
 
-## Build the release artifacts (maintainer)
+## Build
 
-Requires Node 22+ in addition to Python and Git. From the repository root:
-
-```sh
-python3 -m venv .release-venv
-.release-venv/bin/python -m pip install build
-.release-venv/bin/python scripts/build_release.py
-```
-
-Packages use [VS Code’s vsce tooling](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
-
-This produces `dist/blindspot_local-0.4.0-py3-none-any.whl` (receiver, built
-dashboard and fonts) and `dist/blindspot-observer-0.4.0.vsix` (extension and its
-bundled receiver, dashboard and fonts). The wheel is optional for manual hosting.
-It inspects package contents and publishes nothing. The extension uses
-the `mayank-jain` Marketplace publisher. Confirm ownership before publishing.
-
-After building, run the isolated receiver smoke check and regenerate screenshots:
+Build tools: Python 3.11+, Node 22+, npm and Git. On the current development Mac,
+use the working `.release-venv311` environment. A fresh builder can create a venv
+with a working Python and install `build` into it.
 
 ```sh
-.release-venv/bin/python scripts/check_release.py
-npm --prefix dashboard run screenshots
+.release-venv311/bin/python scripts/build_release.py --all-targets
 ```
 
-Screenshot capture expects a development `.venv/bin/python` and Chrome. It creates
-and disposes its own seeded project. The sidebar screenshot is a webview preview,
-not evidence of a native VS Code walkthrough.
+The script downloads the exact upstream archives pinned in
+`scripts/python-runtimes.json`, verifies SHA-256, retains upstream notices and
+builds four platform VSIX packages:
 
-## Install and launch (user)
+- `dist/blindspot-observer-0.4.1-darwin-arm64.vsix`
+- `dist/blindspot-observer-0.4.1-darwin-x64.vsix`
+- `dist/blindspot-observer-0.4.1-linux-arm64.vsix`
+- `dist/blindspot-observer-0.4.1-linux-x64.vsix`
 
-1. Install the Marketplace extension or the locally built VSIX.
-2. Open one trusted local Git checkout in VS Code, with Python 3.11+ and Git installed.
-3. Open the Blindspot sidebar. Its bundled server starts automatically. Click Start
-   recording, then Open full dashboard. No terminal server command is required.
+`dist/blindspot-observer-0.4.1.vsix` is a convenience copy for the build host,
+not an additional universal Marketplace package. The wheel is an optional CLI
+artifact; users of the extension do not install it. Builds publish nothing.
+The runtime archive is unpacked under extension global storage on first launch.
+There is no runtime download. Updating runtime pins requires verifying upstream
+release metadata, updating checksums and rebuilding every target.
 
-The extension stores each project's history in its VS Code global storage,
-outside the project. Closing the window stops its server; Stop recording leaves
-the dashboard available. It reuses matching external receivers without owning
-their lifetime. A manual Connection File setting takes priority; clear it for
-automatic operation. The output channel prints the server URL and state path.
+## Verify
 
-### Optional manual hosting
-
-The separate wheel remains available for terminal-driven development or hosting.
-Node and this repository are not needed after obtaining the artifacts.
+Run extension tests after a build so the native bundled runtime exists:
 
 ```sh
-python3 -m venv "$HOME/.local/share/blindspot/venv"
-"$HOME/.local/share/blindspot/venv/bin/python" -m pip install /absolute/path/to/blindspot_local-0.4.0-py3-none-any.whl
-"$HOME/.local/share/blindspot/venv/bin/blindspot" observer serve \
-  --workspace /absolute/path/to/your-git-project \
-  --state-dir "$HOME/.local/share/blindspot/state/my-project" \
-  --port 7777
+npm --prefix extension test
+npm --prefix extension run check
+npm --prefix dashboard test
+npm --prefix dashboard run test:browser
+.release-venv311/bin/python scripts/check_release.py
 ```
 
-Leave that terminal running. Open `http://127.0.0.1:7777`.
+The receiver test strips Python from PATH, supplies invalid PYTHONHOME/PYTHONPATH,
+and verifies bundled startup, dashboard assets, Git inventory, local HTTP
+boundaries, external-receiver reuse and owned-process shutdown. Repeat against
+extracted VSIX contents with `BLINDSPOT_TEST_EXTENSION=/path/to/extracted/extension`.
+Linux tests should use a container with Node, Git and unzip, but no Python.
 
-In VS Code, install the VSIX using **Extensions → … → Install from VSIX**. Open
-the same Git checkout; the extension automatically discovers its running receiver.
-Then open Coverage from the Blindspot
-activity-bar icon and start recording. No F5 configuration is needed.
+The standalone runtime is provided by Astral's Python Standalone Builds. Keep
+all notices in `extension/runtime/` and in its archive. Runtime archives and
+extracted application files are generated and ignored by Git.
 
-Use a separate state directory and port for another checkout. Stop with Ctrl+C;
-restart the same command to keep your history. To update, stop the receiver,
-install the new wheel with `pip install --upgrade /path/to/new.whl`, restart it,
-install the new VSIX and reload VS Code.
+## Installed-package walkthrough
 
-Recording captures supported source snapshots, including unopened files, locally.
-Only displayed lines gain visibility credit. State retains source contents and
-activity until you delete it. Stop recording and the receiver before deleting
-the chosen state directory. Pasting quiz prompts into a third-party chat shares
-the selected code; keys and local-model explanations are unverified.
+Install the native VSIX in a clean VS Code profile. Do not use F5, a development
+venv, a manual receiver, seeded history or a Connection File setting for this
+check. Python must not be needed on the machine or in PATH.
 
-## Final installed-package walkthrough
+1. Open a trusted local Git project, then open the Blindspot sidebar. Confirm
+   automatic startup and a first-run explanation before recording.
+2. Start recording; open and scroll a file. Check coverage and study-guide refresh.
+3. Check split panes, background tabs, pause, resume, stop and a second recording.
+4. Explore directory tiles, nested subdirectories, breadcrumbs and file search.
+5. Ask an agent to edit a closed file. Confirm changed unseen lines, then open them
+   and check coverage. Do not infer authorship from the colors.
+6. Close and reopen VS Code. Confirm history persists, the server starts again,
+   and recording remains off until requested. Check the full dashboard and overview.
+7. Try optional quiz import/results only if advertising that flow. Generated keys
+   remain unverified. Neither Ollama nor another model is needed for core tracking.
 
-Use a clean VS Code profile with only the packaged extension, not F5:
+## Publish
 
-From the repository root, the verification profile can be opened with:
+Commit the final source and README changes, then create a GitHub release tagged
+`v0.4.1` at that commit. Attach the four target-specific VSIX files; the wheel is
+optional for CLI users. The repository and screenshots must be publicly reachable.
 
-```sh
-code --new-window \
-  --user-data-dir "$PWD/reports/local/release-vscode/profile" \
-  --extensions-dir "$PWD/reports/local/release-vscode/extensions" \
-  /absolute/path/to/your-git-project
-```
+Use the Marketplace publisher `mayank-jain`. Upload the platform packages as the
+same extension/version, or use the local vsce CLI with `publish --packagePath`
+and the four package paths after configuring publishing credentials. Marketplace
+selects the platform package automatically. This repository does not publish as
+part of its build script. Follow the current official publishing documentation:
+https://code.visualstudio.com/api/working-with-extensions/publishing-extension
 
-The local verification installed `dist/blindspot-observer-0.4.0.vsix` in this
-profile. Install the freshly rebuilt VSIX before checking the automatic server;
-stop any manual receiver for this test and leave **Blindspot: Connection File**
-empty in Settings. Receivers advertise locally in `~/.local/share/blindspot/receivers`;
-stale entries are ignored and multiple matches require manual selection.
-
-1. Follow the user setup above from outside the Blindspot repository. Confirm Map
-   loads and first-run says **No display recorded**.
-2. Start recording; open and scroll a supported file. Refresh Map and its guide.
-   Seen lines should increase and guide gaps should shrink without source edits.
-3. Open two files in a split pane. Both visible panes should receive coverage;
-   a background tab should not.
-4. Pause, scroll, resume and stop. Coverage should change only while recording.
-5. Start a second recording. Edit a closed file with a coding agent; inspect its
-   changed unseen lines, then open them and check that the gap shrinks.
-6. Close and reopen the test window. Verify automatic server startup, saved
-   coverage, sidebar and full dashboard. Start recording again; recording does not
-   resume automatically on window reopen. Test **Show Codebase Overview** too.
-7. Optional practice: copy a quiz prompt, paste JSON, take it, report a wrong key,
-   and confirm the completed result remains readable as rejected. Change its
-   source and confirm results become historical, without current credit.
-
-Desktop interaction requires manual confirmation. The packaged receiver smoke
-passed on Linux ARM64 in Docker with Python 3.11. Browser/HTTP tests and package
-inspection do not establish native Linux VS Code behavior. See
-[verification details](../reports/release-readiness.md).
+Finally, install from Marketplace in a clean profile and follow only the listing
+README. Do not treat Node/browser tests as proof of native VS Code interaction on
+untested platforms. Windows, remote workspaces and Alpine/musl are unsupported.

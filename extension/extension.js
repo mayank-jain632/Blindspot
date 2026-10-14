@@ -23,7 +23,7 @@ function activate(context) {
   const consentedWorkspaces=new Set();
   const status=vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left,10);
   status.command='blindspot.controls';
-  status.tooltip='Opt-in local collector pilot';
+  status.tooltip='Local code visibility; recording is opt-in.';
   status.show();
   context.subscriptions.push(status);
   const output=vscode.window.createOutputChannel('Blindspot Observer');
@@ -37,7 +37,7 @@ function activate(context) {
   function update() {
     const label=!current?'off':current.phase==='reconnecting'?'reconnecting · '+current.desiredMode:current.collector?(current.connectionState||'connecting')+' · '+current.collector.mode:'starting';
     status.text='$(eye) Blindspot: '+label+(current&&visibilityExcluded?' · visibility excluded':'');
-    status.tooltip=current?'Workspace: '+(current.root||'selecting')+'\nConnection: '+(current.connectionState||current.phase)+'\nStop cancels recording and reconnection.':'Opt-in local collector pilot';
+    status.tooltip=current?'Workspace: '+(current.root||'selecting')+'\nConnection: '+(current.connectionState||current.phase)+'\nStop cancels recording and reconnection.':'Local code visibility; recording is opt-in.';
   }
   update();
 
@@ -240,9 +240,9 @@ function activate(context) {
   }
   async function connect(run,preflight=null) {
     try {
-      if(!vscode.workspace.isTrusted||vscode.env.remoteName)throw new Error('This pilot requires a trusted local workspace.');
+      if(!vscode.workspace.isTrusted||vscode.env.remoteName)throw new Error('Blindspot requires a trusted local workspace.');
       const folders=(vscode.workspace.workspaceFolders||[]).filter(f=>f.uri.scheme==='file');
-      if(folders.length!==1)throw new Error('Open one local Git workspace in the Development Host.');
+      if(folders.length!==1)throw new Error('Open one local Git workspace.');
       run.root=await fs.realpath(folders[0].uri.fsPath);
       if(!live(run))return;
       if(run.expectedRoot&&run.root!==run.expectedRoot)throw new ReceiverError('VS Code workspace changed; recording stopped.','workspace_changed',false,false);
