@@ -41,6 +41,7 @@ def main():
     for name in ("index.html", "app.js", "style.css"):
         shutil.copyfile(ROOT / "blindspot/observer/web" / name, ROOT / "extension/media/overview" / name)
     shutil.copyfile(ROOT / "LICENSE", ROOT / "extension/LICENSE")
+    shutil.copyfile(ROOT / "assets/icon-transparent.png", ROOT / "extension/media/icon.png")
     out = ROOT / "dist"
     out.mkdir(exist_ok=True)
     run(sys.executable, "-m", "build", "--wheel")
@@ -60,6 +61,7 @@ def main():
         with zipfile.ZipFile(package) as vsix:
             names = vsix.namelist()
             assert "extension/runtime/python.tar.gz" in names
+            assert "extension/media/icon.png" in names
             assert "extension/receiver_entry.py" in names
             assert any(n.startswith("extension/runtime/NOTICE-") for n in names)
             assert json.loads(vsix.read("extension/runtime/manifest.json"))["target"] == target

@@ -144,3 +144,11 @@ bundled-interpreter Python tests, 9 frontend unit tests and wheel smoke pass.
 Intel runtime imports checked under Rosetta; native Intel/Linux editor checks
 still need manual testing. See reports/release-readiness.md for evidence.
 Nothing published; use explicit approval before Marketplace/GitHub releases.
+
+## Marketplace visuals update (2026-10-15)
+
+Marketplace 0.4.1 was uploaded successfully by the user. Current source/packages
+are 0.4.2: user-provided Map and native sidebar screenshots replace previews;
+assets/icon-transparent.png supplies the Marketplace PNG icon. App display name
+is Blindspot: Know Your Code. User deferred the GitHub release until the end;
+remind them to attach the final four platform VSIX packages for the latest version.

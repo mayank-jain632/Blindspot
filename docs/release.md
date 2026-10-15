@@ -2,7 +2,7 @@
 
 This document is for development and release verification. It is not part of the
 user installation path. User instructions live directly in the root and extension
-README files. Version 0.4.1 bundles the runtime, companion, dashboard and fonts.
+README files. Version 0.4.2 bundles the runtime, companion, dashboard and fonts.
 
 ## Build
 
@@ -18,12 +18,12 @@ The script downloads the exact upstream archives pinned in
 `scripts/python-runtimes.json`, verifies SHA-256, retains upstream notices and
 builds four platform VSIX packages:
 
-- `dist/blindspot-observer-0.4.1-darwin-arm64.vsix`
-- `dist/blindspot-observer-0.4.1-darwin-x64.vsix`
-- `dist/blindspot-observer-0.4.1-linux-arm64.vsix`
-- `dist/blindspot-observer-0.4.1-linux-x64.vsix`
+- `dist/blindspot-observer-0.4.2-darwin-arm64.vsix`
+- `dist/blindspot-observer-0.4.2-darwin-x64.vsix`
+- `dist/blindspot-observer-0.4.2-linux-arm64.vsix`
+- `dist/blindspot-observer-0.4.2-linux-x64.vsix`
 
-`dist/blindspot-observer-0.4.1.vsix` is a convenience copy for the build host,
+`dist/blindspot-observer-0.4.2.vsix` is a convenience copy for the build host,
 not an additional universal Marketplace package. The wheel is an optional CLI
 artifact; users of the extension do not install it. Builds publish nothing.
 The runtime archive is unpacked under extension global storage on first launch.
@@ -73,7 +73,7 @@ check. Python must not be needed on the machine or in PATH.
 ## Publish
 
 Commit the final source and README changes, then create a GitHub release tagged
-`v0.4.1` at that commit. Attach the four target-specific VSIX files; the wheel is
+`v0.4.2` at that commit. Attach the four target-specific VSIX files; the wheel is
 optional for CLI users. The repository and screenshots must be publicly reachable.
 
 Use the Marketplace publisher `mayank-jain`. Upload the platform packages as the

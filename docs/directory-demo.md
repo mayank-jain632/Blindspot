@@ -10,7 +10,7 @@ can be added on top. No existing project or tracking history is modified.
 
 ## Try it
 
-1. Install the rebuilt `dist/blindspot-observer-0.4.1.vsix` and reload VS Code.
+1. Install the rebuilt `dist/blindspot-observer-0.4.2.vsix` and reload VS Code.
    Leave **Blindspot: Connection File** empty in Settings.
 2. From the Blindspot repository root, run:
 

@@ -12,7 +12,9 @@ than depending on a particular agent's conversation logs.
 
 ![Directory coverage map](https://raw.githubusercontent.com/mayank-jain632/Blindspot/main/docs/screenshots/map.png)
 
-*Screenshots use sample data. Colors represent display coverage, not authorship.*
+![Blindspot sidebar alongside code in VS Code](https://raw.githubusercontent.com/mayank-jain632/Blindspot/main/docs/screenshots/sidebar.png)
+
+*Screenshots show the Shelfmark demo project. Colors represent display coverage, not authorship.*
 
 ## Get started
 
