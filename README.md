@@ -1,4 +1,4 @@
-# Blindspot
+# Blindspot: Know Your Code
 
 **Know which parts of your codebase you have actually had on screen.**
 
@@ -16,7 +16,7 @@ than depending on a particular agent's conversation logs.
 
 ## Get started
 
-1. Install **Blindspot** by **mayank-jain** from the VS Code Marketplace.
+1. Install **Blindspot: Know Your Code** by **mayank-jain** from the VS Code Marketplace.
 2. Open one local Git project in VS Code and trust the workspace.
 3. Click the Blindspot eye icon in the activity bar, then **Start recording**.
 4. Open and scroll through your code. Choose **Full dashboard** to explore coverage.

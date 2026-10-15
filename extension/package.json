@@ -1,6 +1,6 @@
 {
   "name": "blindspot-observer",
-  "displayName": "Blindspot",
+  "displayName": "Blindspot: Know Your Code",
   "description": "Local line visibility tracking and study guides for agent-assisted code.",
   "version": "0.4.1",
   "publisher": "mayank-jain",
